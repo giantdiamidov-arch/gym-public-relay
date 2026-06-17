@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>体操採点システム - 観覧用ページ</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    background: #0f1923; color: #fff; min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px;
+  }
+  .logo { font-size: 48px; margin-bottom: 8px; }
+  h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #7a8a99; margin-bottom: 36px; }
+  .cards { display: grid; grid-template-columns: 1fr; gap: 16px; width: 100%; max-width: 360px; }
+  .card {
+    background: #1a2634; border: 1px solid #2a3a4a; border-radius: 16px;
+    padding: 24px 20px; text-align: center; text-decoration: none; color: #fff; display: block;
+    transition: all 0.2s;
+  }
+  .card:hover { background: #1e2e3e; border-color: #4a9eff; transform: translateY(-2px); }
+  .card-icon { font-size: 32px; margin-bottom: 10px; }
+  .card-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .card-desc { font-size: 12px; color: #7a8a99; }
+  .note { margin-top: 32px; font-size: 11px; color: #4a5a6a; max-width: 360px; text-align: center; line-height: 1.6; }
+</style>
+</head>
+<body>
+  <div class="logo">🤸</div>
+  <h1>体操採点システム</h1>
+  <p class="subtitle">観覧用ページ（閲覧専用）</p>
+
+  <div class="cards">
+    <a href="scoreboard.html" class="card">
+      <div class="card-icon">🏆</div>
+      <div class="card-title">記録一覧</div>
+      <div class="card-desc">確定済みの得点をリアルタイムで表示</div>
+    </a>
+    <a href="display.html" class="card">
+      <div class="card-icon">🖥️</div>
+      <div class="card-title">場内表示</div>
+      <div class="card-desc">種目を選んで大画面表示と同じ内容を見る</div>
+    </a>
+  </div>
+
+  <p class="note">このページは観覧専用です。得点の入力・編集はできません。</p>
+</body>
+</html>
