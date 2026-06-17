@@ -1,0 +1,12 @@
+{
+  "name": "gymnastics-public-relay",
+  "version": "1.0.0",
+  "description": "体操採点システム - 公開中継サーバー（観覧者向けリアルタイム配信）",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  }
+}

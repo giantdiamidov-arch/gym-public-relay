@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>記録一覧（公開）</title>
+<script src="common.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #0f1923; color: #fff; min-height: 100vh; }
+
+  .nav { background:#111d2a; padding:8px 20px; border-bottom:1px solid #2a3a4a; display:flex; align-items:center; gap:12px; }
+  .nav a { padding:6px 14px; background:#1a2634; border:1px solid #2a3a4a; border-radius:8px; color:#7a8a99; font-size:13px; text-decoration:none; }
+  .nav a:hover { border-color:#dfaf4a; color:#dfaf4a; }
+  .nav .badge { margin-left:auto; font-size:11px; color:#4adf8f; }
+
+  .header { background:#1a2634; padding:12px 20px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #2a3a4a; flex-wrap:wrap; gap:10px; }
+  .header h1 { font-size:18px; font-weight:700; }
+  .header-right { display:flex; align-items:center; gap:10px; }
+  .conn-dot { width:8px; height:8px; border-radius:50%; background:#ff4a4a; display:inline-block; margin-right:6px; }
+  .conn-dot.connected { background:#4adf8f; }
+
+  .controls { padding:12px 16px; background:#111d2a; border-bottom:1px solid #2a3a4a; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .control-group { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .control-label { font-size:11px; color:#7a8a99; text-transform:uppercase; letter-spacing:0.08em; white-space:nowrap; }
+  .filter-btn { padding:5px 12px; background:#1a2634; border:1px solid #2a3a4a; border-radius:16px; font-size:12px; color:#7a8a99; cursor:pointer; white-space:nowrap; transition:all 0.15s; }
+  .filter-btn.active { background:#2a3a5a; border-color:#4a9eff; color:#4a9eff; }
+  .sort-btn { padding:5px 12px; background:#1a2634; border:1px solid #2a3a4a; border-radius:16px; font-size:12px; color:#7a8a99; cursor:pointer; white-space:nowrap; }
+  .sort-btn.active { background:#2a261a; border-color:#dfaf4a; color:#dfaf4a; }
+  .divider { width:1px; height:20px; background:#2a3a4a; margin:0 4px; }
+
+  .main { padding:16px; overflow-x:auto; }
+
+  table { width:100%; border-collapse:collapse; min-width:700px; }
+  thead th { background:#111d2a; padding:10px 12px; text-align:left; font-size:12px; color:#7a8a99; text-transform:uppercase; letter-spacing:0.06em; border-bottom:1px solid #2a3a4a; white-space:nowrap; cursor:pointer; user-select:none; }
+  thead th:hover { color:#dfaf4a; }
+  thead th.sorted { color:#dfaf4a; }
+  tbody tr { border-bottom:1px solid #1a2a3a; transition:background 0.15s; }
+  tbody tr:hover { background:#1a2634; }
+  tbody tr.new-entry { animation:flashIn 1.5s ease; }
+  td { padding:12px 12px; font-size:14px; vertical-align:middle; }
+
+  .rank { font-size:18px; font-weight:700; color:#7a8a99; width:40px; }
+  .rank.r1 { color:#ffd700; }
+  .rank.r2 { color:#c0c0c0; }
+  .rank.r3 { color:#cd7f32; }
+  .athlete-name { font-weight:700; font-size:15px; }
+  .athlete-org { font-size:12px; color:#7a8a99; margin-top:2px; }
+  .cat-tag { font-size:11px; padding:2px 8px; border-radius:10px; background:#1a2a4a; color:#4a9eff; white-space:nowrap; }
+  .app-badge { font-size:12px; padding:3px 8px; border-radius:8px; background:#1a2634; border:1px solid #2a3a4a; white-space:nowrap; }
+  .score-d { color:#df9f4a; font-variant-numeric:tabular-nums; }
+  .score-nd { color:#ff8888; font-variant-numeric:tabular-nums; }
+  .score-bonus { color:#88ff88; font-variant-numeric:tabular-nums; }
+  .score-e { color:#4a9eff; font-variant-numeric:tabular-nums; }
+  .score-final { color:#4adf8f; font-size:18px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .time-cell { font-size:12px; color:#3a4a5a; white-space:nowrap; }
+  .new-badge { background:#1a4a2a; color:#4adf8f; padding:2px 6px; border-radius:6px; font-size:10px; margin-left:6px; }
+
+  .empty-state { text-align:center; padding:64px; color:#3a4a5a; }
+  .empty-icon { font-size:48px; margin-bottom:12px; }
+
+  @keyframes flashIn { 0% { background:#1a3a2a; } 100% { background:transparent; } }
+
+  .btn { padding:8px 14px; border:none; border-radius:8px; color:#fff; font-size:13px; font-weight:700; cursor:pointer; }
+  .btn-green { background:#2a6a3a; }
+  .btn-green:hover { background:#3a8a4a; }
+
+  @media print {
+    .nav, .controls, .header-right { display:none !important; }
+    body { background:#fff; color:#000; }
+    .score-final { color:#000; }
+  }
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <a href="index.html">🏠 ホーム</a>
+  <span class="badge">👀 観覧専用ページ（編集はできません）</span>
+</div>
+
+<div class="header">
+  <h1>🏆 記録一覧（公開）</h1>
+  <div class="header-right">
+    <button class="btn btn-green" onclick="downloadCSV()">📥 CSV</button>
+    <div style="font-size:13px;color:#7a8a99"><span class="conn-dot" id="conn-dot"></span><span id="conn-text">接続中...</span></div>
+  </div>
+</div>
+
+<div class="controls" id="controls"></div>
+<div class="main" id="main"><div class="empty-state"><div class="empty-icon">⏳</div>接続中...</div></div>
+
+<script>
+  let ws, confirmed = [];
+  let filterGender = 'ALL', filterCat = 'ALL', filterApp = 'ALL';
+  let sortKey = 'score', sortDir = -1; // -1=降順, 1=昇順
+  let lastCount = 0;
+  let reconnectDelay = 1000;
+
+  function connectWS() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    ws = new WebSocket(`${proto}://${location.host}`);
+    ws.onopen = () => {
+      document.getElementById('conn-dot').className = 'conn-dot connected';
+      document.getElementById('conn-text').textContent = '接続済み';
+      reconnectDelay = 1000;
+    };
+    ws.onclose = () => {
+      document.getElementById('conn-dot').className = 'conn-dot';
+      document.getElementById('conn-text').textContent = '再接続中...';
+      setTimeout(connectWS, reconnectDelay);
+      reconnectDelay = Math.min(reconnectDelay * 1.5, 8000);
+    };
+    ws.onerror = () => {};
+    ws.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'INIT' || msg.type === 'STATE_UPDATE') {
+        const isNew = confirmed.length > 0 && (msg.state.confirmed || []).length > confirmed.length;
+        confirmed = msg.state.confirmed || [];
+        window._settings = msg.state.settings || {};
+        window._vtFinals = msg.state.vtFinals || {};
+        renderControls();
+        render(isNew);
+      }
+    };
+  }
+
+  // Safariがバックグラウンドから復帰した時に再接続・再要求
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      if (!ws || ws.readyState !== 1) { reconnectDelay = 1000; connectWS(); }
+      else ws.send(JSON.stringify({ type: 'REQUEST_STATE' }));
+    }
+  });
+
+  // ── フィルター・ソートUI ──
+  function renderControls() {
+    const genders = ['ALL', ...new Set(confirmed.map(r => APPARATUS[r.apparatus]?.gender).filter(Boolean))];
+    const cats    = ['ALL', ...new Set(confirmed.map(r => r.athlete?.category).filter(Boolean))];
+    const apps    = ['ALL', ...new Set(confirmed.map(r => r.apparatus).filter(Boolean))];
+
+    let html = `<div class="control-group"><span class="control-label">性別</span>`;
+    genders.forEach(g => html += `<div class="filter-btn ${filterGender===g?'active':''}" onclick="setFilter('gender','${g}')">${g==='ALL'?'全て':g}</div>`);
+    html += `</div><div class="divider"></div>`;
+
+    html += `<div class="control-group"><span class="control-label">カテゴリー</span>`;
+    cats.forEach(c => html += `<div class="filter-btn ${filterCat===c?'active':''}" onclick="setFilter('cat','${c}')">${c==='ALL'?'全て':c}</div>`);
+    html += `</div><div class="divider"></div>`;
+
+    html += `<div class="control-group"><span class="control-label">種目</span>`;
+    apps.forEach(a => html += `<div class="filter-btn ${filterApp===a?'active':''}" onclick="setFilter('app','${a}')">${a==='ALL'?'全て':apparatusShort(a)}</div>`);
+    html += `</div><div class="divider"></div>`;
+
+    html += `<div class="control-group"><span class="control-label">ソート</span>`;
+    [['score','SCORE'],['bib','BIB'],['name','氏名'],['apparatus','種目'],['time','時刻']].forEach(([k,l]) =>
+      html += `<div class="sort-btn ${sortKey===k?'active':''}" onclick="setSort('${k}')">${l}${sortKey===k?(sortDir===-1?'↓':'↑'):''}</div>`
+    );
+    html += `</div>`;
+
+    document.getElementById('controls').innerHTML = html;
+  }
+
+  function setFilter(type, val) {
+    if (type==='gender') filterGender=val;
+    else if (type==='cat') filterCat=val;
+    else if (type==='app') filterApp=val;
+    renderControls();
+    render();
+  }
+
+  function setSort(key) {
+    if (sortKey===key) sortDir *= -1;
+    else { sortKey=key; sortDir = key==='score' ? -1 : 1; }
+    renderControls();
+    render();
+  }
+
+  // ── VT（跳馬）2本跳躍：1本目・2本目を1行に統合した表示用データを作る ──
+  function buildVTDisplayRows() {
+    const settings = window._settings || {};
+    const vtFinals = window._vtFinals || {};
+    const vtMode = (apparatus) => isVT(apparatus) && (Number(settings.vtVaults)||1) >= 2;
+    const consumedIdx = new Set();
+    const rows = [];
+
+    confirmed.forEach((r, idx) => {
+      if (consumedIdx.has(idx)) return;
+      if (!vtMode(r.apparatus) || !r.athlete?.vtVault) {
+        rows.push(r);
+        return;
+      }
+      const bib = r.athlete.bib;
+      let vault1=null, vault2=null;
+      if (r.athlete.vtVault===1) { vault1=r; } else { vault2=r; }
+      const pairIdx = confirmed.findIndex((o,j)=> j!==idx && !consumedIdx.has(j) &&
+        o.apparatus===r.apparatus && o.athlete?.bib===bib && o.athlete?.vtVault && o.athlete.vtVault!==r.athlete.vtVault);
+      if (pairIdx!==-1) {
+        const o = confirmed[pairIdx];
+        if (o.athlete.vtVault===1) { vault1=o; } else { vault2=o; }
+        consumedIdx.add(pairIdx);
+      }
+      consumedIdx.add(idx);
+      const key = r.apparatus+'|'+bib;
+      const vf = vtFinals[key] || null;
+      const canonicalAthlete = vault1 ? vault1.athlete : { ...r.athlete, name: String(r.athlete.name||'').replace(/（2本目）$/,'') };
+      rows.push({
+        apparatus: r.apparatus,
+        athlete: canonicalAthlete,
+        isDNF: false,
+        finalScore: vf ? vf.finalScore : (vault1 ? vault1.finalScore : (vault2 ? vault2.finalScore : 0)),
+        confirmedAt: vf ? vf.confirmedAt : (vault2 ? vault2.confirmedAt : (vault1 ? vault1.confirmedAt : '')),
+        __vt: { vault1, vault2, final: vf },
+      });
+    });
+    return rows;
+  }
+
+  // ── テーブル描画 ──
+  function render(newEntry=false) {
+    let filtered = buildVTDisplayRows().filter(r => {
+      const gender = APPARATUS[r.apparatus]?.gender;
+      if (filterGender!=='ALL' && gender!==filterGender) return false;
+      if (filterCat!=='ALL' && r.athlete?.category!==filterCat) return false;
+      if (filterApp!=='ALL' && r.apparatus!==filterApp) return false;
+      return true;
+    });
+
+    filtered = [...filtered].sort((a,b) => {
+      if (a.isDNF && !b.isDNF) return 1;
+      if (!a.isDNF && b.isDNF) return -1;
+      if (a.isDNF && b.isDNF) return 0;
+      let va, vb;
+      if (sortKey==='score')    { va=a.finalScore; vb=b.finalScore; }
+      else if (sortKey==='bib') { va=parseInt(a.athlete?.bib||0); vb=parseInt(b.athlete?.bib||0); }
+      else if (sortKey==='name'){ va=a.athlete?.name||''; vb=b.athlete?.name||''; }
+      else if (sortKey==='apparatus') { va=a.apparatus||''; vb=b.apparatus||''; }
+      else if (sortKey==='time'){ va=a.confirmedAt||''; vb=b.confirmedAt||''; }
+      if (va < vb) return -1 * sortDir;
+      if (va > vb) return 1 * sortDir;
+      return 0;
+    });
+
+    const main = document.getElementById('main');
+    if (filtered.length===0) {
+      main.innerHTML = `<div class="empty-state"><div class="empty-icon">🤸</div>確定得点がここに表示されます</div>`;
+      return;
+    }
+
+    const showRank = sortKey==='score' && sortDir===-1;
+
+    let html = `<table><thead><tr>
+      <th onclick="setSort('score')" class="${sortKey==='score'?'sorted':''}">順位</th>
+      <th onclick="setSort('bib')" class="${sortKey==='bib'?'sorted':''}">BIB${sortKey==='bib'?(sortDir===-1?'↓':'↑'):''}</th>
+      <th onclick="setSort('name')" class="${sortKey==='name'?'sorted':''}">選手</th>
+      <th onclick="setSort('cat')" class="${sortKey==='cat'?'sorted':''}">カテゴリー</th>
+      <th onclick="setSort('apparatus')" class="${sortKey==='apparatus'?'sorted':''}">種目</th>
+      <th onclick="setSort('score')" class="${sortKey==='score'?'sorted':''}">D</th>
+      <th>ND</th><th>BONUS</th>
+      <th>E</th>
+      <th onclick="setSort('score')" class="${sortKey==='score'?'sorted':''}">SCORE</th>
+      <th style="font-size:11px">E個別</th>
+      <th onclick="setSort('time')" class="${sortKey==='time'?'sorted':''}">時刻</th>
+    </tr></thead><tbody>`;
+
+    filtered.forEach((r, i) => {
+      const isNew = newEntry && confirmed.length > lastCount && i === filtered.length-1;
+      const rankClass = i===0?'r1':i===1?'r2':i===2?'r3':'';
+      const time = r.confirmedAt ? new Date(r.confirmedAt).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
+
+      if (r.__vt) {
+        const v1 = r.__vt.vault1, v2 = r.__vt.vault2, vf = r.__vt.final;
+        const v1Score = v1 ? Number(v1.finalScore).toFixed(3) : '—';
+        const v2Score = v2 ? Number(v2.finalScore).toFixed(3) : '—';
+        const finalDisp = vf ? Number(vf.finalScore).toFixed(3) : '—';
+        const methodLabel = vf ? (vf.method==='avg' ? '2本平均' : `高い方:${vf.winnerVault}本目`) : '2本確定待ち';
+        html += `<tr class="${isNew?'new-entry':''}">
+          <td class="rank ${showRank?rankClass:''}">${showRank ? i+1 : '—'}</td>
+          <td style="color:#dfaf4a;font-weight:700;font-variant-numeric:tabular-nums">${r.athlete?.bib||''}</td>
+          <td>
+            <div class="athlete-name">${r.athlete?.name||''}${isNew?'<span class="new-badge">NEW</span>':''}</div>
+            <div class="athlete-org">${r.athlete?.club||''}</div>
+          </td>
+          <td><span class="cat-tag">${r.athlete?.category||''}</span></td>
+          <td><span class="app-badge">${apparatusShort(r.apparatus)}</span></td>
+          <td colspan="5" style="text-align:center">
+            <div style="display:flex;justify-content:center;gap:18px;align-items:center;flex-wrap:wrap">
+              <div style="text-align:center">
+                <div style="font-size:10px;color:#7a8a99">1本目</div>
+                <div style="font-variant-numeric:tabular-nums">${v1Score}</div>
+              </div>
+              <div style="text-align:center">
+                <div style="font-size:10px;color:#7a8a99">2本目</div>
+                <div style="font-variant-numeric:tabular-nums">${v2Score}</div>
+              </div>
+              <div style="text-align:center">
+                <div style="font-size:10px;color:#dfaf4a">採用得点（${methodLabel}）</div>
+                <div class="score-final">${finalDisp}</div>
+              </div>
+            </div>
+          </td>
+          <td style="font-size:11px;color:#2a6aaa">—</td>
+          <td class="time-cell">${time}</td>
+        </tr>`;
+        return;
+      }
+
+      html += `<tr class="${isNew?'new-entry':''}">
+        <td class="rank ${showRank?rankClass:''}">${showRank ? i+1 : '—'}</td>
+        <td style="color:#dfaf4a;font-weight:700;font-variant-numeric:tabular-nums">${r.athlete?.bib||''}</td>
+        <td>
+          <div class="athlete-name">${r.athlete?.name||''}${isNew?'<span class="new-badge">NEW</span>':''}</div>
+          <div class="athlete-org">${r.athlete?.club||''}</div>
+        </td>
+        <td><span class="cat-tag">${r.athlete?.category||''}</span></td>
+        <td><span class="app-badge">${apparatusShort(r.apparatus)}</span></td>
+        ${r.isDNF ? `<td colspan="5" style="text-align:center;color:#ff6a6a;font-weight:700;font-size:16px">🚫 棄権</td>` : `
+        <td class="score-d">${Number(r.dScore).toFixed(1)}</td>
+        <td class="score-nd">${Number(r.nd||0).toFixed(1)}</td>
+        <td class="score-bonus">${Number(r.stickBonus||0).toFixed(1)}</td>
+        <td class="score-e">${Number(r.eAvg).toFixed(3)}</td>
+        <td class="score-final">${Number(r.finalScore).toFixed(3)}</td>
+        `}
+        <td style="font-size:11px;color:#2a6aaa;white-space:nowrap">${r.isDNF ? '—' : (r.eScores ? Object.entries(r.eScores).sort(([a],[b])=>a.localeCompare(b)).map(([k,v])=>k+':'+Number(v).toFixed(1)).join('  ') : '—')}</td>
+        <td class="time-cell">${time}</td>
+      </tr>`;
+    });
+
+    html += '</tbody></table>';
+    main.innerHTML = html;
+    lastCount = confirmed.length;
+  }
+
+  // ── CSV ──
+  function downloadCSV() {
+    if (confirmed.length===0) { alert('確定得点がありません'); return; }
+    const rows = [['性別','カテゴリー','BIB','氏名','所属','種目','D','ND','BONUS','E avg','SCORE','VT 1本目','VT 2本目','VT採用方式','確定時刻']];
+    [...buildVTDisplayRows()].sort((a,b)=>b.finalScore-a.finalScore).forEach(r => {
+      if (r.__vt) {
+        const v1 = r.__vt.vault1, v2 = r.__vt.vault2, vf = r.__vt.final;
+        rows.push([
+          APPARATUS[r.apparatus]?.gender||'',
+          r.athlete?.category||'',
+          r.athlete?.bib||'',
+          r.athlete?.name||'',
+          r.athlete?.club||'',
+          apparatusShort(r.apparatus),
+          '', '', '', '',
+          vf ? Number(vf.finalScore).toFixed(3) : '',
+          v1 ? Number(v1.finalScore).toFixed(3) : '',
+          v2 ? Number(v2.finalScore).toFixed(3) : '',
+          vf ? (vf.method==='avg' ? '2本平均' : `高い方(${vf.winnerVault}本目)`) : '',
+          r.confirmedAt ? new Date(r.confirmedAt).toLocaleString('ja-JP') : '',
+        ]);
+        return;
+      }
+      rows.push([
+        APPARATUS[r.apparatus]?.gender||'',
+        r.athlete?.category||'',
+        r.athlete?.bib||'',
+        r.athlete?.name||'',
+        r.athlete?.club||'',
+        apparatusShort(r.apparatus),
+        r.isDNF ? '棄権' : Number(r.dScore).toFixed(3),
+        r.isDNF ? '' : Number(r.nd||0).toFixed(3),
+        r.isDNF ? '' : Number(r.stickBonus||0).toFixed(3),
+        r.isDNF ? '' : Number(r.eAvg).toFixed(3),
+        r.isDNF ? '棄権' : Number(r.finalScore).toFixed(3),
+        '', '', '',
+        new Date(r.confirmedAt).toLocaleString('ja-JP'),
+      ]);
+    });
+    const bom = '\uFEFF';
+    const csv = bom + rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv],{type:'text/csv;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href=url;
+    const now=new Date();
+    a.download=`scores_public_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  connectWS();
+</script>
+</body>
+</html>
