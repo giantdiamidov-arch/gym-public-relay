@@ -82,7 +82,6 @@
 <div class="header">
   <h1>🏆 記録一覧（公開）</h1>
   <div class="header-right">
-    <button class="btn btn-green" onclick="downloadCSV()">📥 CSV</button>
     <div style="font-size:13px;color:#7a8a99"><span class="conn-dot" id="conn-dot"></span><span id="conn-text">接続中...</span></div>
   </div>
 </div>
@@ -325,57 +324,6 @@
     html += '</tbody></table>';
     main.innerHTML = html;
     lastCount = confirmed.length;
-  }
-
-  // ── CSV ──
-  function downloadCSV() {
-    if (confirmed.length===0) { alert('確定得点がありません'); return; }
-    const rows = [['性別','カテゴリー','BIB','氏名','所属','種目','D','ND','BONUS','E avg','SCORE','VT 1本目','VT 2本目','VT採用方式','確定時刻']];
-    [...buildVTDisplayRows()].sort((a,b)=>b.finalScore-a.finalScore).forEach(r => {
-      if (r.__vt) {
-        const v1 = r.__vt.vault1, v2 = r.__vt.vault2, vf = r.__vt.final;
-        rows.push([
-          APPARATUS[r.apparatus]?.gender||'',
-          r.athlete?.category||'',
-          r.athlete?.bib||'',
-          r.athlete?.name||'',
-          r.athlete?.club||'',
-          apparatusShort(r.apparatus),
-          '', '', '', '',
-          vf ? Number(vf.finalScore).toFixed(3) : '',
-          v1 ? Number(v1.finalScore).toFixed(3) : '',
-          v2 ? Number(v2.finalScore).toFixed(3) : '',
-          vf ? (vf.method==='avg' ? '2本平均' : `高い方(${vf.winnerVault}本目)`) : '',
-          r.confirmedAt ? new Date(r.confirmedAt).toLocaleString('ja-JP') : '',
-        ]);
-        return;
-      }
-      rows.push([
-        APPARATUS[r.apparatus]?.gender||'',
-        r.athlete?.category||'',
-        r.athlete?.bib||'',
-        r.athlete?.name||'',
-        r.athlete?.club||'',
-        apparatusShort(r.apparatus),
-        r.isDNF ? '棄権' : Number(r.dScore).toFixed(3),
-        r.isDNF ? '' : Number(r.nd||0).toFixed(3),
-        r.isDNF ? '' : Number(r.stickBonus||0).toFixed(3),
-        r.isDNF ? '' : Number(r.eAvg).toFixed(3),
-        r.isDNF ? '棄権' : Number(r.finalScore).toFixed(3),
-        '', '', '',
-        new Date(r.confirmedAt).toLocaleString('ja-JP'),
-      ]);
-    });
-    const bom = '\uFEFF';
-    const csv = bom + rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv],{type:'text/csv;charset=utf-8'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href=url;
-    const now=new Date();
-    a.download=`scores_public_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
   }
 
   connectWS();

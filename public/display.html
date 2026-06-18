@@ -81,6 +81,8 @@
   /* 設定パネル（右クリックメニュー的なもの） */
   .settings-btn { position:fixed; bottom:20px; right:20px; padding:8px 16px; background:rgba(255,255,255,0.1); border:none; border-radius:8px; color:#7a8a99; font-size:12px; cursor:pointer; }
   .settings-btn:hover { background:rgba(255,255,255,0.2); }
+  .home-btn { position:fixed; bottom:20px; left:20px; padding:8px 16px; background:rgba(255,255,255,0.1); border-radius:8px; color:#7a8a99; font-size:12px; text-decoration:none; z-index:10; }
+  .home-btn:hover { background:rgba(255,255,255,0.2); }
   .settings-panel { display:none; position:fixed; bottom:60px; right:20px; background:#1a2634; border:1px solid #2a3a4a; border-radius:12px; padding:16px; min-width:200px; }
   .settings-panel.open { display:block; }
   .settings-panel label { display:flex; align-items:center; gap:8px; font-size:14px; margin-bottom:8px; cursor:pointer; }
@@ -89,6 +91,8 @@
 </style>
 </head>
 <body>
+
+<a class="home-btn" href="index.html">🏠 ホーム</a>
 
 <!-- 種目選択 -->
 <div id="setup">
