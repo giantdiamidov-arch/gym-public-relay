@@ -83,6 +83,35 @@
     .rank.r1, .rank.r2, .rank.r3 { color:#000; }
     .vt-method-label { color:#444; }
   }
+
+  /* ── スマホ表示: 1人分を横スクロール不要のカードに変える ── */
+  @media (max-width: 640px) {
+    .main { padding:10px; }
+    .sheet { padding:12px; overflow-x:visible; }
+    table { min-width:0; width:100%; border-collapse:separate; border-spacing:0 10px; }
+    thead { display:none; }
+    tbody tr { display:block; background:#141f2c; border:1px solid #2a3a4a; border-radius:14px; padding:12px 14px 6px; }
+    td { display:block; padding:0; }
+
+    /* 1〜3列目（順位・BIB・選手）はカードの見出し部分として並べる */
+    tr td:nth-child(1) {
+      display:inline-flex; align-items:center; justify-content:center;
+      width:30px; height:30px; border-radius:50%; background:#0f1923;
+      font-size:15px; margin-right:10px; vertical-align:middle;
+    }
+    tr td:nth-child(2) { display:inline-block; font-size:13px; vertical-align:middle; margin-right:10px; }
+    tr td:nth-child(3) { display:inline-block; vertical-align:middle; }
+
+    /* 4列目以降（D・ND・BONUS・E平均・SCORE、種目別の合計や完了など）はラベル付き一覧に */
+    tr td:nth-child(n+4) {
+      display:flex; justify-content:space-between; align-items:center; gap:10px;
+      padding:7px 0; border-top:1px solid #1a2a3a; font-size:13px;
+    }
+    tr td:nth-child(n+4)::before {
+      content:attr(data-label); font-size:11px; color:#7a8a99;
+      text-transform:uppercase; letter-spacing:0.05em; flex-shrink:0;
+    }
+  }
 </style>
 </head>
 <body>
@@ -354,14 +383,14 @@
           <td class="rank ${rankClass(rk)}">${rk ?? '—'}</td>
           <td class="score-cell-num">${r.athlete?.bib || ''}</td>
           <td><div class="athlete-name">${r.athlete?.name || ''}</div><div class="athlete-org">${r.athlete?.club || ''}</div></td>
-          <td colspan="5" style="text-align:center">
+          <td colspan="5" data-label="結果" style="text-align:center">
             <div style="display:flex;justify-content:center;gap:16px;align-items:center;flex-wrap:wrap">
               <div style="text-align:center"><div style="font-size:10px;color:#7a8a99">1本目</div><div class="score-cell-num">${v1Score}</div></div>
               <div style="text-align:center"><div style="font-size:10px;color:#7a8a99">2本目</div><div class="score-cell-num">${v2Score}</div></div>
               <div style="text-align:center"><div class="vt-method-label">採用（${methodLabel}）</div><div class="score-final">${finalDisp}</div></div>
             </div>
           </td>
-          <td class="time-cell">${fmtTime(r.confirmedAt)}</td>
+          <td class="time-cell" data-label="確定時刻">${fmtTime(r.confirmedAt)}</td>
         </tr>`;
         return;
       }
@@ -370,8 +399,8 @@
           <td class="rank">—</td>
           <td class="score-cell-num">${r.athlete?.bib || ''}</td>
           <td><div class="athlete-name">${r.athlete?.name || ''}</div><div class="athlete-org">${r.athlete?.club || ''}</div></td>
-          <td colspan="5" class="dnf-cell">🚫 棄権</td>
-          <td class="time-cell">${fmtTime(r.confirmedAt)}</td>
+          <td colspan="5" data-label="結果" class="dnf-cell">🚫 棄権</td>
+          <td class="time-cell" data-label="確定時刻">${fmtTime(r.confirmedAt)}</td>
         </tr>`;
         return;
       }
@@ -379,12 +408,12 @@
         <td class="rank ${rankClass(rk)}">${rk ?? '—'}</td>
         <td class="score-cell-num">${r.athlete?.bib || ''}</td>
         <td><div class="athlete-name">${r.athlete?.name || ''}</div><div class="athlete-org">${r.athlete?.club || ''}</div></td>
-        <td class="score-d score-cell-num">${Number(r.dScore).toFixed(1)}</td>
-        <td class="score-nd score-cell-num">${Number(r.nd || 0).toFixed(1)}</td>
-        <td class="score-bonus score-cell-num">${Number(r.stickBonus || 0).toFixed(1)}</td>
-        <td class="score-e score-cell-num">${Number(r.eAvg).toFixed(3)}</td>
-        <td class="score-final">${Number(r.finalScore).toFixed(3)}</td>
-        <td class="time-cell">${fmtTime(r.confirmedAt)}</td>
+        <td class="score-d score-cell-num" data-label="D">${Number(r.dScore).toFixed(1)}</td>
+        <td class="score-nd score-cell-num" data-label="ND">${Number(r.nd || 0).toFixed(1)}</td>
+        <td class="score-bonus score-cell-num" data-label="BONUS">${Number(r.stickBonus || 0).toFixed(1)}</td>
+        <td class="score-e score-cell-num" data-label="E平均">${Number(r.eAvg).toFixed(3)}</td>
+        <td class="score-final" data-label="SCORE">${Number(r.finalScore).toFixed(3)}</td>
+        <td class="time-cell" data-label="確定時刻">${fmtTime(r.confirmedAt)}</td>
       </tr>`;
     });
 
@@ -408,10 +437,10 @@
       g.apparatusOrder.forEach(code => {
         const v = r.breakdown[code];
         const cell = v === undefined ? '—' : (v === null ? '<span style="color:#ff8888">棄権</span>' : Number(v).toFixed(3));
-        html += `<td class="score-cell-num">${cell}</td>`;
+        html += `<td class="score-cell-num" data-label="${apparatusShort(code)}">${cell}</td>`;
       });
-      html += `<td class="score-final">${Number(r.total).toFixed(3)}</td>
-        <td class="complete-tag">${r.completed}/${g.totalEvents}</td>
+      html += `<td class="score-final" data-label="合計">${Number(r.total).toFixed(3)}</td>
+        <td class="complete-tag" data-label="完了">${r.completed}/${g.totalEvents}</td>
       </tr>`;
     });
 

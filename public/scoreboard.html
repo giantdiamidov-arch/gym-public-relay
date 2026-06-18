@@ -70,6 +70,39 @@
     body { background:#fff; color:#000; }
     .score-final { color:#000; }
   }
+
+  /* ── スマホ表示: 1人分を横スクロール不要のカードに変える ── */
+  @media (max-width: 640px) {
+    .main { padding:10px; overflow-x:visible; }
+    table { min-width:0; width:100%; border-collapse:separate; border-spacing:0 10px; }
+    thead { display:none; }
+    tbody tr {
+      display:block; background:#141f2c; border:1px solid #2a3a4a; border-radius:14px;
+      padding:12px 14px 6px; animation:none !important;
+    }
+    tbody tr:hover { background:#141f2c; }
+    td { display:block; padding:0; }
+
+    /* 1〜5列目（順位・BIB・選手・カテゴリー・種目）はカードの見出し部分として並べる */
+    tr td:nth-child(1) {
+      display:inline-flex; align-items:center; justify-content:center;
+      width:30px; height:30px; border-radius:50%; background:#0f1923;
+      font-size:15px; margin-right:10px; vertical-align:middle;
+    }
+    tr td:nth-child(2) { display:inline-block; font-size:13px; vertical-align:middle; margin-right:10px; }
+    tr td:nth-child(3) { display:inline-block; vertical-align:middle; }
+    tr td:nth-child(4), tr td:nth-child(5) { display:inline-block; margin:8px 6px 4px 0; }
+
+    /* 6列目以降（D・ND・BONUS・E・SCORE または棄権/VT結果、時刻）はラベル付き一覧に */
+    tr td:nth-child(n+6) {
+      display:flex; justify-content:space-between; align-items:center; gap:10px;
+      padding:7px 0; border-top:1px solid #1a2a3a; font-size:13px;
+    }
+    tr td:nth-child(n+6)::before {
+      content:attr(data-label); font-size:11px; color:#7a8a99;
+      text-transform:uppercase; letter-spacing:0.05em; flex-shrink:0;
+    }
+  }
 </style>
 </head>
 <body>
@@ -280,7 +313,7 @@
           </td>
           <td><span class="cat-tag">${r.athlete?.category||''}</span></td>
           <td><span class="app-badge">${apparatusShort(r.apparatus)}</span></td>
-          <td colspan="5" style="text-align:center">
+          <td colspan="5" data-label="結果" style="text-align:center">
             <div style="display:flex;justify-content:center;gap:18px;align-items:center;flex-wrap:wrap">
               <div style="text-align:center">
                 <div style="font-size:10px;color:#7a8a99">1本目</div>
@@ -296,7 +329,7 @@
               </div>
             </div>
           </td>
-          <td class="time-cell">${time}</td>
+          <td class="time-cell" data-label="時刻">${time}</td>
         </tr>`;
         return;
       }
@@ -310,14 +343,14 @@
         </td>
         <td><span class="cat-tag">${r.athlete?.category||''}</span></td>
         <td><span class="app-badge">${apparatusShort(r.apparatus)}</span></td>
-        ${r.isDNF ? `<td colspan="5" style="text-align:center;color:#ff6a6a;font-weight:700;font-size:16px">🚫 棄権</td>` : `
-        <td class="score-d">${Number(r.dScore).toFixed(1)}</td>
-        <td class="score-nd">${Number(r.nd||0).toFixed(1)}</td>
-        <td class="score-bonus">${Number(r.stickBonus||0).toFixed(1)}</td>
-        <td class="score-e">${Number(r.eAvg).toFixed(3)}</td>
-        <td class="score-final">${Number(r.finalScore).toFixed(3)}</td>
+        ${r.isDNF ? `<td colspan="5" data-label="結果" style="text-align:center;color:#ff6a6a;font-weight:700;font-size:16px">🚫 棄権</td>` : `
+        <td class="score-d" data-label="D">${Number(r.dScore).toFixed(1)}</td>
+        <td class="score-nd" data-label="ND">${Number(r.nd||0).toFixed(1)}</td>
+        <td class="score-bonus" data-label="BONUS">${Number(r.stickBonus||0).toFixed(1)}</td>
+        <td class="score-e" data-label="E">${Number(r.eAvg).toFixed(3)}</td>
+        <td class="score-final" data-label="SCORE">${Number(r.finalScore).toFixed(3)}</td>
         `}
-        <td class="time-cell">${time}</td>
+        <td class="time-cell" data-label="時刻">${time}</td>
       </tr>`;
     });
 
