@@ -59,7 +59,11 @@ const server = http.createServer((req, res) => {
             vtFinals: msg.vtFinals || {},
             settings: msg.settings || { eJudgeCount: 4 },
           };
-          broadcast({ type: 'STATE_UPDATE', state: publicState });
+          // 会場サーバー側で「場内表示への自動反映を抑制したい」（編集・再編集中など）と
+          // 指定された場合は、観覧者側の場内表示にもそのまま伝える。
+          // これがないと、確定済み得点の編集・再編集が「場内表示に反映しますか？」の
+          // 確認前に観覧者側の画面へ即時反映されてしまう。
+          broadcast({ type: 'STATE_UPDATE', state: publicState, skipDisplayAuto: !!msg.skipDisplayAuto });
         } else if (msg.type === 'FORCE_SHOW') {
           broadcast({ type: 'DISPLAY_FORCE_SHOW', apparatus: msg.apparatus, result: msg.result });
         }
