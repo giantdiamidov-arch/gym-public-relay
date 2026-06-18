@@ -258,7 +258,6 @@
       <th>ND</th><th>BONUS</th>
       <th>E</th>
       <th onclick="setSort('score')" class="${sortKey==='score'?'sorted':''}">SCORE</th>
-      <th style="font-size:11px">E個別</th>
       <th onclick="setSort('time')" class="${sortKey==='time'?'sorted':''}">時刻</th>
     </tr></thead><tbody>`;
 
@@ -298,7 +297,6 @@
               </div>
             </div>
           </td>
-          <td style="font-size:11px;color:#2a6aaa">—</td>
           <td class="time-cell">${time}</td>
         </tr>`;
         return;
@@ -320,7 +318,6 @@
         <td class="score-e">${Number(r.eAvg).toFixed(3)}</td>
         <td class="score-final">${Number(r.finalScore).toFixed(3)}</td>
         `}
-        <td style="font-size:11px;color:#2a6aaa;white-space:nowrap">${r.isDNF ? '—' : (r.eScores ? Object.entries(r.eScores).sort(([a],[b])=>a.localeCompare(b)).map(([k,v])=>k+':'+Number(v).toFixed(1)).join('  ') : '—')}</td>
         <td class="time-cell">${time}</td>
       </tr>`;
     });

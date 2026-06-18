@@ -128,7 +128,6 @@
     <label><input type="checkbox" id="opt-eavg" checked onchange="renderScore()"> E AVG</label>
     <label><input type="checkbox" id="opt-nd" checked onchange="renderScore()"> ND</label>
     <label><input type="checkbox" id="opt-bonus" checked onchange="renderScore()"> BONUS</label>
-    <label><input type="checkbox" id="opt-eindiv" onchange="renderScore()"> E個別スコア</label>
     <button class="change-btn" onclick="changeApparatus()">🔄 種目を変更</button>
   </div>
 </div>
@@ -286,12 +285,6 @@
     if(get('opt-eavg')) html+=`<div class="score-box eavg"><div class="lbl">E AVG</div><div class="val">${Number(r.eAvg).toFixed(3)}</div></div>`;
     if(get('opt-nd'))   html+=`<div class="score-box nd"><div class="lbl">ND</div><div class="val">-${Number(r.nd||0).toFixed(1)}</div></div>`;
     if(get('opt-bonus'))html+=`<div class="score-box bonus"><div class="lbl">BONUS</div><div class="val">+${Number(r.stickBonus||0).toFixed(1)}</div></div>`;
-    if(get('opt-eindiv')) {
-      eKeys.forEach(k=>{
-        const v=r.eScores&&r.eScores[k];
-        if(v!==undefined) html+=`<div class="score-box e"><div class="lbl">${k}</div><div class="val">${Number(v).toFixed(1)}</div></div>`;
-      });
-    }
     html+='</div>';
 
     // SCORE大表示
