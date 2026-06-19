@@ -59,11 +59,10 @@ const server = http.createServer((req, res) => {
             vtFinals: msg.vtFinals || {},
             settings: msg.settings || { eJudgeCount: 4 },
           };
-          // 会場サーバー側で「場内表示への自動反映を抑制したい」（編集・再編集中など）と
-          // 指定された場合は、観覧者側の場内表示にもそのまま伝える。
-          // これがないと、確定済み得点の編集・再編集が「場内表示に反映しますか？」の
-          // 確認前に観覧者側の画面へ即時反映されてしまう。
-          broadcast({ type: 'STATE_UPDATE', state: publicState, skipDisplayAuto: !!msg.skipDisplayAuto });
+          // skipDisplayAuto=true の場合は観覧者側の場内表示も自動更新しない
+          // （記録本部が得点を編集した場合など。「場内表示に反映しますか？」を経由した
+          //   FORCE_SHOW のみが表示を更新する）
+          broadcast({ type: 'STATE_UPDATE', state: publicState, skipDisplayAuto: msg.skipDisplayAuto || false });
         } else if (msg.type === 'FORCE_SHOW') {
           broadcast({ type: 'DISPLAY_FORCE_SHOW', apparatus: msg.apparatus, result: msg.result });
         }
