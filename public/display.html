@@ -182,6 +182,42 @@
 <script>
   let ws, myApparatus=null, selectedGender='MAG', selectedApp=null;
   let latestScore=null, stateData={};
+  let avgDisplayTimer=null;
+
+  const VT_AVG_DISPLAY_DELAY_MS = 8000;
+  function cancelAvgTimer() {
+    if(avgDisplayTimer) { clearTimeout(avgDisplayTimer); avgDisplayTimer=null; }
+  }
+  function handleVT2VaultStateUpdate(state) {
+    const vtScoring = (state.settings||{}).vtScoring || 'best';
+    const vtFinals  = state.vtFinals || {};
+    const vtEntries = (state.confirmed||[])
+      .filter(r => r.apparatus===myApparatus)
+      .sort((a,b) => new Date(b.confirmedAt) - new Date(a.confirmedAt));
+    if(vtEntries.length===0) {
+      cancelAvgTimer();
+      if(latestScore) { latestScore=null; renderScore(); }
+      return;
+    }
+    const newest = vtEntries[0];
+    const bib = newest.athlete?.bib;
+    const vtFinalEntry = vtFinals[myApparatus+'|'+bib] || null;
+    if(newest.athlete?.vtVault===2 && vtFinalEntry && vtScoring==='avg') {
+      const elapsed = Date.now() - new Date(vtFinalEntry.confirmedAt).getTime();
+      if(elapsed >= VT_AVG_DISPLAY_DELAY_MS) {
+        cancelAvgTimer();
+        if(JSON.stringify(latestScore)!==JSON.stringify(vtFinalEntry)) { latestScore=vtFinalEntry; renderScore(); }
+      } else {
+        if(JSON.stringify(latestScore)!==JSON.stringify(newest)) { latestScore=newest; renderScore(); }
+        if(!avgDisplayTimer) {
+          avgDisplayTimer = setTimeout(()=>{ avgDisplayTimer=null; latestScore=vtFinalEntry; renderScore(); }, VT_AVG_DISPLAY_DELAY_MS - elapsed);
+        }
+      }
+    } else {
+      cancelAvgTimer();
+      if(JSON.stringify(latestScore)!==JSON.stringify(newest)) { latestScore=newest; renderScore(); }
+    }
+  }
 
   // ── セットアップ ──
   function selGender(g) {
@@ -212,6 +248,7 @@
     connectWS();
   }
   function changeApparatus() {
+    cancelAvgTimer();
     document.getElementById('settings-panel').className='settings-panel';
     document.getElementById('display').style.display='none';
     document.getElementById('setup').style.display='flex';
@@ -238,39 +275,31 @@
       const msg=JSON.parse(e.data);
       if(msg.type==='INIT'||msg.type==='STATE_UPDATE') {
         stateData=msg.state;
-        // 編集・取り消しなど明示的なユーザー操作による更新では自動切り替えしない
-        // （「場内表示に反映しますか？」で「はい」を選んだ場合のみ DISPLAY_FORCE_SHOW で切り替える）
         if(msg.skipDisplayAuto) return;
-        // この種目の最新確定得点を取得（通常の確定エントリ＋VT採用得点の両方を候補にする）
-        // ※2本跳躍モードのVT種目では、個々の本のconfirmedエントリは中間データに過ぎない
-        //   （両本が揃うまでvtFinalsは作られない＝1本目だけ確定した時点ではまだ「最終得点」ではない）。
-        //   これを候補に含めると、1本目だけ確定した瞬間にその本だけの点数が場内表示に
-        //   誤って出てしまう、また確定時刻が近接した際にvtFinalsより個別本側が「最新」と
-        //   誤判定されることがあるため、2本跳躍モードのVTでは個別本のエントリを候補から除外する。
-        let appConfirmed=(msg.state.confirmed||[]).filter(r=>r.apparatus===myApparatus);
-        const vtVaultsSetting = Number((msg.state.settings||{}).vtVaults) || 1;
-        if (isVT(myApparatus) && vtVaultsSetting >= 2) {
-          appConfirmed = appConfirmed.filter(r => !r.athlete?.vtVault);
+        const vtVaultsConfig = Number((msg.state.settings||{}).vtVaults)||1;
+        if(isVT(myApparatus) && vtVaultsConfig >= 2) {
+          handleVT2VaultStateUpdate(msg.state);
+          return;
         }
+        const appConfirmed=(msg.state.confirmed||[]).filter(r=>r.apparatus===myApparatus);
         const vtFinalsForApp = Object.values(msg.state.vtFinals||{}).filter(v=>v.apparatus===myApparatus);
         const candidates = [...appConfirmed, ...vtFinalsForApp];
         if(candidates.length>0) {
           const newLatest = candidates.reduce((a,b)=> new Date(b.confirmedAt) > new Date(a.confirmedAt) ? b : a);
           if(!latestScore||JSON.stringify(newLatest)!==JSON.stringify(latestScore)){
+            cancelAvgTimer();
             latestScore=newLatest;
             renderScore();
           }
+        } else if(latestScore){
+          cancelAvgTimer();
+          latestScore=null;
+          renderScore();
         }
       }
-      if(msg.type==='SCORE_CONFIRMED'&&msg.result.apparatus===myApparatus){
-        latestScore=msg.result;
-        renderScore();
-      }
-      if(msg.type==='VT_FINAL_CONFIRMED'&&msg.apparatus===myApparatus){
-        latestScore=msg.result; // method/vault1Score/vault2Scoreを持つVT採用得点
-        renderScore();
-      }
+      // クラウド中継ではSCORE_CONFIRMED/VT_FINAL_CONFIRMEDは送られてこない（STATE_UPDATEのみ）
       if(msg.type==='DISPLAY_FORCE_SHOW'&&msg.apparatus===myApparatus){
+        cancelAvgTimer();
         latestScore=msg.result;
         flashAndRender();
       }
@@ -326,12 +355,18 @@
     const eCount=Number(settings.eJudgeCount)||4;
     const eKeys=['E1','E2','E3','E4','E5','E6'].slice(0,eCount);
 
+    const vaultNum = r.athlete?.vtVault || null;
+    const displayName = (r.athlete?.name||'').replace(/（2本目）$/, '');
+    const vaultBadge = vaultNum
+      ? `<div style="text-align:center;color:#dfaf4a;font-size:20px;font-weight:700;margin-bottom:16px">🏃 ${vaultNum}本目</div>` : '';
+
     let html='<div class="score-display animate-in">';
+    html+=vaultBadge;
 
     // 選手情報
     html+=`<div class="athlete-row">`;
     if(get('opt-bib')) html+=`<div class="athlete-bib">${r.athlete?.bib||''}</div>`;
-    html+=`<div><div class="athlete-name">${r.athlete?.name||''}</div>`;
+    html+=`<div><div class="athlete-name">${displayName}</div>`;
     if(get('opt-org')) html+=`<div class="athlete-org"><span class="athlete-cat">${r.athlete?.category||''}</span>${r.athlete?.club||''}</div>`;
     html+=`</div></div>`;
 
