@@ -308,7 +308,7 @@
           <td class="rank ${showRank?rankClass:''}">${showRank ? i+1 : '—'}</td>
           <td style="color:#dfaf4a;font-weight:700;font-variant-numeric:tabular-nums">${r.athlete?.bib||''}</td>
           <td>
-            <div class="athlete-name">${r.athlete?.name||''}${isNew?'<span class="new-badge">NEW</span>':''}</div>
+            <div class="athlete-name">${r.athlete?.name||''}${isNew?'<span class="new-badge">NEW</span>':''}${(r.__vt?.vault1?.hanaMaru||r.__vt?.vault2?.hanaMaru)?'<span style="font-size:inherit;margin-left:6px">🌸</span>':''}</div>
             <div class="athlete-org">${r.athlete?.club||''}</div>
           </td>
           <td><span class="cat-tag">${r.athlete?.category||''}</span></td>
@@ -338,7 +338,7 @@
         <td class="rank ${showRank?rankClass:''}">${showRank ? i+1 : '—'}</td>
         <td style="color:#dfaf4a;font-weight:700;font-variant-numeric:tabular-nums">${r.athlete?.bib||''}</td>
         <td>
-          <div class="athlete-name">${r.athlete?.name||''}${isNew?'<span class="new-badge">NEW</span>':''}</div>
+          <div class="athlete-name">${r.athlete?.name||''}${isNew?'<span class="new-badge">NEW</span>':''}${r.hanaMaru?'<span style="font-size:inherit;margin-left:6px">🌸</span>':''}</div>
           <div class="athlete-org">${r.athlete?.club||''}</div>
         </td>
         <td><span class="cat-tag">${r.athlete?.category||''}</span></td>

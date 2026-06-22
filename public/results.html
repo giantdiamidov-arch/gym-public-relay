@@ -382,7 +382,7 @@
         html += `<tr>
           <td class="rank ${rankClass(rk)}">${rk ?? '—'}</td>
           <td class="score-cell-num">${r.athlete?.bib || ''}</td>
-          <td><div class="athlete-name">${r.athlete?.name || ''}</div><div class="athlete-org">${r.athlete?.club || ''}</div></td>
+          <td><div class="athlete-name">${r.athlete?.name || ''}${(r.__vt?.vault1?.hanaMaru||r.__vt?.vault2?.hanaMaru)?'<span style="font-size:inherit;margin-left:4px">🌸</span>':''}</div><div class="athlete-org">${r.athlete?.club || ''}</div></td>
           <td colspan="5" data-label="結果" style="text-align:center">
             <div style="display:flex;justify-content:center;gap:16px;align-items:center;flex-wrap:wrap">
               <div style="text-align:center"><div style="font-size:10px;color:#7a8a99">1本目</div><div class="score-cell-num">${v1Score}</div></div>
@@ -398,7 +398,7 @@
         html += `<tr>
           <td class="rank">—</td>
           <td class="score-cell-num">${r.athlete?.bib || ''}</td>
-          <td><div class="athlete-name">${r.athlete?.name || ''}</div><div class="athlete-org">${r.athlete?.club || ''}</div></td>
+          <td><div class="athlete-name">${r.athlete?.name || ''}${r.hanaMaru?'<span style="font-size:inherit;margin-left:4px">🌸</span>':''}</div><div class="athlete-org">${r.athlete?.club || ''}</div></td>
           <td colspan="5" data-label="結果" class="dnf-cell">🚫 棄権</td>
           <td class="time-cell" data-label="確定時刻">${fmtTime(r.confirmedAt)}</td>
         </tr>`;
@@ -407,7 +407,7 @@
       html += `<tr>
         <td class="rank ${rankClass(rk)}">${rk ?? '—'}</td>
         <td class="score-cell-num">${r.athlete?.bib || ''}</td>
-        <td><div class="athlete-name">${r.athlete?.name || ''}</div><div class="athlete-org">${r.athlete?.club || ''}</div></td>
+        <td><div class="athlete-name">${r.athlete?.name || ''}${r.hanaMaru?'<span style="font-size:inherit;margin-left:4px">🌸</span>':''}</div><div class="athlete-org">${r.athlete?.club || ''}</div></td>
         <td class="score-d score-cell-num" data-label="D">${Number(r.dScore).toFixed(1)}</td>
         <td class="score-nd score-cell-num" data-label="ND">${Number(r.nd || 0).toFixed(1)}</td>
         <td class="score-bonus score-cell-num" data-label="BONUS">${Number(r.stickBonus || 0).toFixed(1)}</td>
@@ -433,7 +433,7 @@
       html += `<tr>
         <td class="rank ${rankClass(r.__rank)}">${r.__rank ?? '—'}</td>
         <td class="score-cell-num">${r.athlete?.bib || ''}</td>
-        <td><div class="athlete-name">${r.athlete?.name || ''}</div><div class="athlete-org">${r.athlete?.club || ''}</div></td>`;
+        <td><div class="athlete-name">${r.athlete?.name || ''}${r.hanaMaru?'<span style="font-size:inherit;margin-left:4px">🌸</span>':''}</div><div class="athlete-org">${r.athlete?.club || ''}</div></td>`;
       g.apparatusOrder.forEach(code => {
         const v = r.breakdown[code];
         const cell = v === undefined ? '—' : (v === null ? '<span style="color:#ff8888">棄権</span>' : Number(v).toFixed(3));
