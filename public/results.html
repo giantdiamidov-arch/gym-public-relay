@@ -245,8 +245,8 @@
     const order = [];
     const seen = new Set();
     (state.roster || []).forEach(r => {
-      const c = r.category || UNCATEGORIZED;
-      if (!seen.has(c)) { seen.add(c); order.push(c); }
+      const cats = Array.isArray(r.category) ? r.category : (r.category ? [r.category] : [UNCATEGORIZED]);
+      cats.forEach(c => { if (!seen.has(c)) { seen.add(c); order.push(c); } });
     });
     rows.forEach(r => {
       const c = r.athlete?.category || UNCATEGORIZED;
@@ -313,16 +313,26 @@
     const genders = filterGender === 'ALL' ? ['MAG', 'WAG'] : [filterGender];
     const groups = [];
 
+    const rosterCatMap = {};
+    (appState.roster || []).forEach(r => {
+      rosterCatMap[r.bib] = Array.isArray(r.category) ? r.category : (r.category ? [r.category] : [UNCATEGORIZED]);
+    });
+    function athleteInCat(row, cat) {
+      const bib = row.athlete?.bib;
+      if (bib && rosterCatMap[bib]) return rosterCatMap[bib].includes(cat);
+      return (row.athlete?.category || UNCATEGORIZED) === cat;
+    }
+
     if (mode === 'apparatus') {
       genders.forEach(g => {
         const apparatusOrder = g === 'MAG' ? MAG_ORDER : WAG_ORDER;
         const cats = filterCategory === 'ALL'
-          ? categoryOrder.filter(c => rows.some(r => APPARATUS[r.apparatus]?.gender === g && (r.athlete?.category || UNCATEGORIZED) === c))
+          ? categoryOrder.filter(c => rows.some(r => APPARATUS[r.apparatus]?.gender === g && athleteInCat(r, c)))
           : [filterCategory];
         cats.forEach(cat => {
           const codes = filterApparatus === 'ALL' ? apparatusOrder : apparatusOrder.filter(c => c === filterApparatus);
           codes.forEach(code => {
-            let groupRows = rows.filter(r => r.apparatus === code && (r.athlete?.category || UNCATEGORIZED) === cat);
+            let groupRows = rows.filter(r => r.apparatus === code && athleteInCat(r, cat));
             if (groupRows.length === 0) return;
             groupRows = rankApparatusRows(groupRows);
             groups.push({ type: 'apparatus', gender: g, category: cat, apparatus: code, rows: groupRows });
@@ -333,19 +343,18 @@
       genders.forEach(g => {
         const apparatusOrder = g === 'MAG' ? MAG_ORDER : WAG_ORDER;
         const cats = filterCategory === 'ALL'
-          ? categoryOrder.filter(c => rows.some(r => APPARATUS[r.apparatus]?.gender === g && (r.athlete?.category || UNCATEGORIZED) === c))
+          ? categoryOrder.filter(c => rows.some(r => APPARATUS[r.apparatus]?.gender === g && athleteInCat(r, c)))
           : [filterCategory];
         cats.forEach(cat => {
           const athletes = {};
           apparatusOrder.forEach(code => {
-            rows.filter(r => r.apparatus === code && (r.athlete?.category || UNCATEGORIZED) === cat).forEach(r => {
+            rows.filter(r => r.apparatus === code && athleteInCat(r, cat)).forEach(r => {
               const bib = r.athlete?.bib || '';
-              if (!athletes[bib]) athletes[bib] = { athlete: r.athlete, total: 0, completed: 0, breakdown: {}, hanaMaruByCode: {}, scoresArr: [], isDNF: false };
+              if (!athletes[bib]) athletes[bib] = { athlete: r.athlete, total: 0, completed: 0, breakdown: {}, scoresArr: [], isDNF: false };
               const scoreVal = Number(r.finalScore) || 0;
               athletes[bib].total = round3(athletes[bib].total + scoreVal);
               athletes[bib].completed += 1;
               athletes[bib].breakdown[code] = r.isDNF ? null : r.finalScore;
-              athletes[bib].hanaMaruByCode[code] = !!(r.__vt ? (r.__vt.vault1?.hanaMaru || r.__vt.vault2?.hanaMaru) : r.hanaMaru);
               athletes[bib].scoresArr.push(scoreVal);
             });
           });
@@ -388,7 +397,7 @@
             <div style="display:flex;justify-content:center;gap:16px;align-items:center;flex-wrap:wrap">
               <div style="text-align:center"><div style="font-size:10px;color:#7a8a99">1本目</div><div class="score-cell-num">${v1Score}</div></div>
               <div style="text-align:center"><div style="font-size:10px;color:#7a8a99">2本目</div><div class="score-cell-num">${v2Score}</div></div>
-              <div style="text-align:center"><div class="vt-method-label">採用（${methodLabel}）</div><div class="score-final">${finalDisp}${(r.__vt?.vault1?.hanaMaru||r.__vt?.vault2?.hanaMaru)?'<span style="font-size:0.75em;margin-left:4px">🌸</span>':''}</div></div>
+              <div style="text-align:center"><div class="vt-method-label">採用（${methodLabel}）</div><div class="score-final">${finalDisp}</div></div>
             </div>
           </td>
           <td class="time-cell" data-label="確定時刻">${fmtTime(r.confirmedAt)}</td>
@@ -413,7 +422,7 @@
         <td class="score-nd score-cell-num" data-label="ND">${Number(r.nd || 0).toFixed(1)}</td>
         <td class="score-bonus score-cell-num" data-label="BONUS">${Number(r.stickBonus || 0).toFixed(1)}</td>
         <td class="score-e score-cell-num" data-label="E平均">${Number(r.eAvg).toFixed(3)}</td>
-        <td class="score-final" data-label="SCORE">${Number(r.finalScore).toFixed(3)}${r.hanaMaru?'<span style="font-size:0.75em;margin-left:4px">🌸</span>':''}</td>
+        <td class="score-final" data-label="SCORE">${Number(r.finalScore).toFixed(3)}</td>
         <td class="time-cell" data-label="確定時刻">${fmtTime(r.confirmedAt)}</td>
       </tr>`;
     });
@@ -437,8 +446,7 @@
         <td><div class="athlete-name">${r.athlete?.name || ''}</div><div class="athlete-org">${r.athlete?.club || ''}</div></td>`;
       g.apparatusOrder.forEach(code => {
         const v = r.breakdown[code];
-        const hm = r.hanaMaruByCode?.[code];
-        const cell = v === undefined ? '—' : (v === null ? '<span style="color:#ff8888">棄権</span>' : Number(v).toFixed(3) + (hm ? '<span style="font-size:0.85em;margin-left:3px">🌸</span>' : ''));
+        const cell = v === undefined ? '—' : (v === null ? '<span style="color:#ff8888">棄権</span>' : Number(v).toFixed(3));
         html += `<td class="score-cell-num" data-label="${apparatusShort(code)}">${cell}</td>`;
       });
       html += `<td class="score-final" data-label="合計">${Number(r.total).toFixed(3)}</td>
