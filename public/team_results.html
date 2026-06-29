@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>団体総合リザルト（観覧用）</title>
+<script src="common.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #0f1923; color: #fff; min-height: 100vh; }
+
+  .nav { background:#111d2a; padding:8px 20px; border-bottom:1px solid #2a3a4a; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .nav a { padding:6px 14px; background:#1a2634; border:1px solid #2a3a4a; border-radius:8px; color:#7a8a99; font-size:13px; text-decoration:none; }
+  .nav a:hover { border-color:#dfaf4a; color:#dfaf4a; }
+
+  .header { background:#1a2634; padding:12px 20px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #2a3a4a; flex-wrap:wrap; gap:10px; }
+  .header h1 { font-size:18px; font-weight:700; }
+  .header-right { display:flex; align-items:center; gap:10px; }
+  .conn-dot { width:8px; height:8px; border-radius:50%; background:#ff4a4a; display:inline-block; margin-right:6px; }
+  .conn-dot.connected { background:#4adf8f; }
+
+  .btn { padding:8px 14px; border:none; border-radius:8px; color:#fff; font-size:13px; font-weight:700; cursor:pointer; }
+  .btn-green { background:#2a6a3a; } .btn-green:hover { background:#3a8a4a; }
+  .btn-blue  { background:#2a4a8a; } .btn-blue:hover  { background:#3a5aae; }
+
+  .controls { padding:12px 16px; background:#111d2a; border-bottom:1px solid #2a3a4a; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .filter-btn { padding:5px 12px; background:#1a2634; border:1px solid #2a3a4a; border-radius:16px; font-size:12px; color:#7a8a99; cursor:pointer; white-space:nowrap; }
+  .filter-btn.active { background:#2a3a5a; border-color:#4a9eff; color:#4a9eff; }
+  .control-label { font-size:11px; color:#7a8a99; text-transform:uppercase; letter-spacing:0.08em; white-space:nowrap; }
+
+  .main { padding:16px; }
+
+  .sheet { background:#1a2634; border:1px solid #2a3a4a; border-radius:14px; padding:16px; margin-bottom:18px; overflow-x:auto; }
+  .sheet-title { font-size:15px; font-weight:700; margin-bottom:4px; color:#dfaf4a; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .sheet-subtitle { font-size:12px; color:#7a8a99; margin-bottom:12px; }
+  .g-tag { font-size:11px; padding:2px 8px; border-radius:10px; background:#1a2a4a; color:#4a9eff; }
+  .g-tag.wag { background:#2a1a2a; color:#df4adf; }
+
+  table { width:100%; border-collapse:collapse; min-width:500px; }
+  thead th { background:#111d2a; padding:9px 10px; text-align:left; font-size:11px; color:#7a8a99; text-transform:uppercase; letter-spacing:0.05em; border-bottom:1px solid #2a3a4a; white-space:nowrap; }
+  tbody tr { border-bottom:1px solid #1a2a3a; }
+  tbody tr:hover { background:#111d2a; }
+  td { padding:10px 10px; font-size:13px; vertical-align:middle; }
+
+  .rank { font-size:17px; font-weight:700; color:#7a8a99; width:36px; }
+  .rank.r1 { color:#ffd700; }
+  .rank.r2 { color:#c0c0c0; }
+  .rank.r3 { color:#cd7f32; }
+  .team-name { font-weight:700; font-size:14px; }
+  .score-cell { font-variant-numeric:tabular-nums; }
+  .score-final { color:#4adf8f; font-size:16px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .score-dim { color:#3a5a3a; font-size:12px; font-variant-numeric:tabular-nums; }
+  .member-count { font-size:11px; color:#7a8a99; white-space:nowrap; }
+
+  .detail-row td { padding:4px 10px 10px 52px; font-size:12px; color:#7a8a99; border-bottom:1px solid #1a2a3a; }
+  .member-table { width:100%; border-collapse:collapse; margin-top:4px; }
+  .member-table td { padding:3px 8px; font-size:12px; border:none; }
+  .member-used { color:#4adf8f; }
+  .member-dropped { color:#3a5a4a; }
+  .adopted-badge { font-size:10px; background:#1a2a3a; border:1px solid #dfaf4a; color:#dfaf4a; border-radius:4px; padding:1px 5px; margin-left:4px; }
+
+  .empty-state { text-align:center; padding:64px; color:#3a4a5a; }
+  .empty-icon { font-size:48px; margin-bottom:12px; }
+  .disabled-state { text-align:center; padding:64px; color:#4a5a6a; }
+
+  @media print {
+    body { background:#fff; color:#000; }
+    .nav, .controls, .header-right { display:none !important; }
+    .header { background:#fff; border-bottom:2px solid #000; }
+    .header h1 { color:#000; }
+    .sheet { background:#fff; border:1px solid #888; page-break-after:always; break-after:page; }
+    .sheet:last-child { page-break-after:auto; break-after:auto; }
+    .sheet-title { color:#000; }
+    .g-tag { background:#eee; color:#000; border:1px solid #aaa; }
+    thead th { background:#eee; color:#000; border-bottom:1px solid #000; }
+    tbody tr { border-bottom:1px solid #ccc; }
+    .score-final { color:#000; }
+    .score-cell { color:#000; }
+    .detail-row td { color:#333; }
+    .member-used { color:#006600; }
+    .member-dropped { color:#999; }
+    .rank.r1 { color:#887700; }
+    .rank.r2 { color:#666; }
+    .rank.r3 { color:#884400; }
+  }
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <a href="index.html">🏠 ホーム</a>
+  <a href="results.html">📊 個人リザルト</a>
+  <a href="scoreboard.html">🏆 記録一覧</a>
+</div>
+
+<div class="header">
+  <h1>🏅 団体総合リザルト</h1>
+  <div class="header-right">
+    <span style="font-size:11px;color:#4a9eff;background:#1a2a4a;border:1px solid #2a3a6a;padding:3px 10px;border-radius:10px">👁️ 閲覧専用</span>
+    <span><span class="conn-dot" id="conn-dot"></span><span id="conn-label" style="font-size:12px;color:#7a8a99">接続中...</span></span>
+    <button class="btn btn-green" onclick="render()">🔄 更新</button>
+    <button class="btn btn-blue" onclick="window.print()">🖨️ 印刷</button>
+    <button class="btn btn-blue" onclick="downloadCSV()">📥 CSV</button>
+  </div>
+</div>
+
+<div class="controls">
+  <span class="control-label">性別</span>
+  <div class="filter-btn active" id="fb-ALL" onclick="setFilter('ALL')">すべて</div>
+  <div class="filter-btn" id="fb-MAG" onclick="setFilter('MAG')">MAG</div>
+  <div class="filter-btn" id="fb-WAG" onclick="setFilter('WAG')">WAG</div>
+  <div style="flex:1"></div>
+  <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#7a8a99;cursor:pointer">
+    <input type="checkbox" id="show-detail" onchange="render()"> メンバー詳細を表示
+  </label>
+</div>
+
+<div class="main" id="main">
+  <div class="empty-state"><div class="empty-icon">🔌</div>サーバーに接続中...</div>
+</div>
+
+<script>
+  let appState = null;
+  let filterGender = 'ALL';
+
+  // ── WebSocket接続 ──
+  const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const ws = new WebSocket(`${wsProto}://${location.host}`);
+
+  ws.addEventListener('open', () => {
+    document.getElementById('conn-dot').className = 'conn-dot connected';
+    document.getElementById('conn-label').textContent = '接続済み';
+    ws.send(JSON.stringify({ type: 'REQUEST_STATE' }));
+  });
+  ws.addEventListener('close', () => {
+    document.getElementById('conn-dot').className = 'conn-dot';
+    document.getElementById('conn-label').textContent = '切断';
+  });
+  ws.addEventListener('error', () => {
+    document.getElementById('conn-dot').className = 'conn-dot';
+    document.getElementById('conn-label').textContent = 'エラー';
+  });
+  ws.addEventListener('message', (ev) => {
+    const msg = JSON.parse(ev.data);
+    if (msg.type === 'INIT' || msg.type === 'STATE_UPDATE') {
+      appState = msg.state;
+      render();
+    }
+  });
+
+  function setFilter(g) {
+    filterGender = g;
+    ['ALL','MAG','WAG'].forEach(id => {
+      document.getElementById(`fb-${id}`).className = 'filter-btn' + (filterGender === id ? ' active' : '');
+    });
+    render();
+  }
+
+  // ── VT スコアを「確定済み1本分」として取得 ──
+  // vtFinals がある（2本モード）場合は vtTeamScore 設定に従って選択。
+  // 1本モードの場合は confirmed から直接取得。
+  function getVTScoreForTeam(gender, bib, vtTeamScore, state) {
+    const ap = gender === 'MAG' ? 'MAG_VT' : 'WAG_VT';
+    const vtVaults = Number(state.settings.vtVaults) || 1;
+    if (vtVaults >= 2) {
+      const key = ap + '|' + bib;
+      const vf = state.vtFinals?.[key];
+      if (!vf) return null;
+      if (vtTeamScore === 'v1') return Number(vf.vault1Score);
+      if (vtTeamScore === 'v2') return Number(vf.vault2Score);
+      // 'best': 高い方
+      return Math.max(Number(vf.vault1Score), Number(vf.vault2Score));
+    } else {
+      const c = state.confirmed.find(r => r.apparatus === ap && r.athlete.bib === bib && !r.isDNF);
+      return c ? Number(c.finalScore) : null;
+    }
+  }
+
+  // ── 団体集計 ──
+  // 戻り値: [{ gender, category, club, total, apparatusScores:{ap:{scores,adopted,dropped}}, rank }]
+  function buildTeamGroups(state, genderFilter) {
+    const settings = state.settings || {};
+    if (!settings.teamEnabled) return null; // 団体無効
+
+    const groups = [];
+
+    for (const gender of ['MAG', 'WAG']) {
+      if (genderFilter !== 'ALL' && genderFilter !== gender) continue;
+      const teamCfg = gender === 'MAG' ? settings.teamMAG : settings.teamWAG;
+      if (!teamCfg) continue;
+      const { teamSize, countBest, apparatus: targetApparatus, vtTeamScore } = teamCfg;
+
+      // 団体メンバーのみ抽出
+      const members = (state.roster || []).filter(r => r.gender === gender && r.teamMember);
+      if (members.length === 0) continue;
+
+      // カテゴリー順を維持
+      const categoryOrder = [];
+      const catSeen = new Set();
+      (state.roster || []).forEach(r => {
+        const cats = Array.isArray(r.category) ? r.category : [r.category || ''];
+        cats.forEach(c => { if (!catSeen.has(c)) { catSeen.add(c); categoryOrder.push(c); } });
+      });
+
+      // 所属ごとに集計
+      const clubMap = {}; // club → { category, bibs:Set }
+
+      members.forEach(r => {
+        const cats = Array.isArray(r.category) ? r.category : [r.category || ''];
+        cats.forEach(cat => {
+          const key = `${cat}__${r.club}`;
+          if (!clubMap[key]) clubMap[key] = { gender, category: cat, club: r.club, bibs: [] };
+          if (!clubMap[key].bibs.includes(r.bib)) clubMap[key].bibs.push(r.bib);
+        });
+      });
+
+      // カテゴリー→クラブ順に並べる
+      const clubEntries = Object.values(clubMap);
+      clubEntries.sort((a, b) => {
+        const ci = categoryOrder.indexOf(a.category) - categoryOrder.indexOf(b.category);
+        return ci !== 0 ? ci : a.club.localeCompare(b.club, 'ja');
+      });
+
+      // 各クラブ・各種目のスコア集計
+      const teamRows = clubEntries.map(entry => {
+        const { bibs, category, club } = entry;
+
+        // 各対象種目で各メンバーのスコアを集める
+        const apparatusScores = {}; // ap → { memberScores:[{bib,name,score}], adopted, dropped, subTotal }
+
+        let grandTotal = 0;
+
+        (targetApparatus || []).forEach(ap => {
+          const isVTAp = ap === 'MAG_VT' || ap === 'WAG_VT';
+          const memberScores = [];
+
+          bibs.forEach(bib => {
+            const member = state.roster.find(r => r.bib === bib && r.gender === gender);
+            let score = null;
+            if (isVTAp) {
+              score = getVTScoreForTeam(gender, bib, vtTeamScore, state);
+            } else {
+              const c = state.confirmed.find(r => r.apparatus === ap && r.athlete.bib === bib && !r.isDNF);
+              score = c ? Number(c.finalScore) : null;
+            }
+            if (score !== null) {
+              memberScores.push({ bib, name: member?.name || bib, score });
+            }
+          });
+
+          // 上位 countBest 名を採用
+          memberScores.sort((a, b) => b.score - a.score);
+          const adopted = memberScores.slice(0, countBest);
+          const dropped = memberScores.slice(countBest);
+          const subTotal = adopted.reduce((s, m) => s + m.score, 0);
+          grandTotal += subTotal;
+
+          apparatusScores[ap] = { memberScores, adopted, dropped, subTotal };
+        });
+
+        return { gender, category, club, total: floorTo3(grandTotal), apparatusScores, bibs };
+      });
+
+      // カテゴリーごとにグループ化してランク付け
+      const catGroups = {};
+      teamRows.forEach(row => {
+        if (!catGroups[row.category]) catGroups[row.category] = [];
+        catGroups[row.category].push(row);
+      });
+
+      categoryOrder.forEach(cat => {
+        const rows = catGroups[cat];
+        if (!rows || rows.length === 0) return;
+        rows.sort((a, b) => b.total - a.total);
+        let rank = 0;
+        let prevTotal = null;
+        rows.forEach((r, i) => {
+          if (prevTotal === null || r.total !== prevTotal) rank = i + 1;
+          r.rank = rank;
+          prevTotal = r.total;
+        });
+        groups.push({ gender, category: cat, rows, teamCfg });
+      });
+    }
+
+    return groups;
+  }
+
+  function rankClass(r) {
+    if (r === 1) return 'r1';
+    if (r === 2) return 'r2';
+    if (r === 3) return 'r3';
+    return '';
+  }
+
+  function fmtScore(v) { return v === null ? '—' : Number(v).toFixed(3); }
+
+  function render() {
+    const main = document.getElementById('main');
+    if (!appState) return;
+
+    const settings = appState.settings || {};
+    if (!settings.teamEnabled) {
+      main.innerHTML = `<div class="disabled-state"><div style="font-size:48px;margin-bottom:12px">⚙️</div>
+        <div style="font-size:16px;margin-bottom:8px">団体総合は無効になっています</div>
+        <div style="font-size:13px">競技会場の管理者にお問い合わせください。</div></div>`;
+      return;
+    }
+
+    const groups = buildTeamGroups(appState, filterGender);
+    if (!groups || groups.length === 0) {
+      main.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div>
+        <div>団体メンバーが登録されていません。</div>
+        <div style="font-size:12px;margin-top:8px;color:#3a4a5a">競技会場の管理者にお問い合わせください。</div></div>`;
+      return;
+    }
+
+    const showDetail = document.getElementById('show-detail').checked;
+    const targetOrders = { MAG: MAG_ORDER, WAG: WAG_ORDER };
+
+    main.innerHTML = groups.map(g => {
+      const { gender, category, rows, teamCfg } = g;
+      const { countBest, apparatus: targetAp } = teamCfg;
+      // 対象種目を定義順でソート
+      const apOrder = (targetOrders[gender] || []).filter(a => targetAp.includes(a));
+      const gTagClass = gender === 'WAG' ? 'g-tag wag' : 'g-tag';
+
+      let html = `<div class="sheet">
+        <div class="sheet-title">
+          <span class="${gTagClass}">${gender}</span>
+          <span class="g-tag" style="background:#2a2a1a;color:#dfaf4a">${category}</span>
+          🏅 団体総合
+        </div>
+        <div class="sheet-subtitle">上位${countBest}名合計 ／ 対象種目: ${apOrder.map(a => apparatusShort(a)).join(' ')}</div>
+        <table>
+          <thead><tr>
+            <th>順位</th><th>チーム（所属）</th>
+            ${apOrder.map(a => `<th>${apparatusShort(a)}</th>`).join('')}
+            <th>合計</th>
+          </tr></thead>
+          <tbody>`;
+
+      rows.forEach(row => {
+        html += `<tr>
+          <td class="rank ${rankClass(row.rank)}">${row.rank}</td>
+          <td><div class="team-name">${row.club}</div><div class="member-count">登録${row.bibs.length}名</div></td>
+          ${apOrder.map(ap => {
+            const as = row.apparatusScores[ap];
+            if (!as) return `<td class="score-cell">—</td>`;
+            return `<td class="score-cell">${fmtScore(as.subTotal)}</td>`;
+          }).join('')}
+          <td class="score-final">${fmtScore(row.total)}</td>
+        </tr>`;
+
+        if (showDetail) {
+          html += `<tr class="detail-row"><td colspan="${2 + apOrder.length + 1}">
+            <table class="member-table"><tbody>`;
+          // 全メンバーBIBを集めて行を作る
+          const allBibs = row.bibs;
+          allBibs.forEach(bib => {
+            const member = appState.roster.find(r => r.bib === bib && r.gender === gender);
+            const name = member?.name || bib;
+            html += `<tr><td style="color:#aaa;min-width:120px">${bib} ${name}</td>`;
+            apOrder.forEach(ap => {
+              const as = row.apparatusScores[ap];
+              if (!as) { html += `<td>—</td>`; return; }
+              const ms = as.memberScores.find(m => m.bib === bib);
+              if (!ms) { html += `<td style="color:#3a4a5a">未出場</td>`; return; }
+              const isAdopted = as.adopted.some(m => m.bib === bib);
+              html += isAdopted
+                ? `<td class="member-used">${fmtScore(ms.score)}<span class="adopted-badge">採用</span></td>`
+                : `<td class="member-dropped">${fmtScore(ms.score)}</td>`;
+            });
+            html += `</tr>`;
+          });
+          html += `</tbody></table></td></tr>`;
+        }
+      });
+
+      html += `</tbody></table></div>`;
+      return html;
+    }).join('');
+  }
+
+  // ── CSV出力 ──
+  function downloadCSV() {
+    if (!appState) return;
+    const settings = appState.settings || {};
+    if (!settings.teamEnabled) { alert('団体総合が無効です'); return; }
+    const groups = buildTeamGroups(appState, filterGender);
+    if (!groups || groups.length === 0) { alert('出力できるデータがありません'); return; }
+
+    const targetOrders = { MAG: MAG_ORDER, WAG: WAG_ORDER };
+    const rows = [['性別','カテゴリー','順位','チーム','採用人数','種目','種目合計','総合合計']];
+
+    groups.forEach(g => {
+      const { gender, category, rows: teamRows, teamCfg } = g;
+      const apOrder = (targetOrders[gender] || []).filter(a => teamCfg.apparatus.includes(a));
+      teamRows.forEach(row => {
+        apOrder.forEach(ap => {
+          const as = row.apparatusScores[ap];
+          rows.push([
+            gender, category, row.rank, row.club,
+            teamCfg.countBest,
+            apparatusShort(ap),
+            as ? fmtScore(as.subTotal) : '—',
+            fmtScore(row.total),
+          ]);
+        });
+      });
+    });
+
+    const bom = '\uFEFF';
+    const csv = bom + rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const now = new Date();
+    a.download = `team_results_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+</script>
+</body>
+</html>
