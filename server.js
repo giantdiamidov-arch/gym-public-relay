@@ -35,6 +35,7 @@ let publicState = {
   confirmed: [],
   vtFinals: {},
   settings: { eJudgeCount: 4 },
+  roster: [],
 };
 
 const server = http.createServer((req, res) => {
@@ -58,6 +59,7 @@ const server = http.createServer((req, res) => {
             confirmed: msg.confirmed || [],
             vtFinals: msg.vtFinals || {},
             settings: msg.settings || { eJudgeCount: 4 },
+            roster: msg.roster || [],
           };
           // skipDisplayAuto=true の場合は観覧者側の場内表示も自動更新しない
           // （記録本部が得点を編集した場合など。「場内表示に反映しますか？」を経由した
