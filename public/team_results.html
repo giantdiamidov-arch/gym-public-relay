@@ -210,8 +210,8 @@
         const cats = Array.isArray(r.category) ? r.category : [r.category || ''];
         cats.forEach(cat => {
           const key = `${cat}__${teamLabel}`;
-          if (!clubMap[key]) clubMap[key] = { gender, category: cat, club: teamLabel, bibs: [], clubNames: new Set() };
-          if (!clubMap[key].bibs.includes(r.bib)) clubMap[key].bibs.push(r.bib);
+          if (!clubMap[key]) clubMap[key] = { gender, category: cat, club: teamLabel, members: [], clubNames: new Set() };
+          if (!clubMap[key].members.some(m => m.bib === r.bib && m.name === r.name)) clubMap[key].members.push(r);
           if (r.club) clubMap[key].clubNames.add(r.club);
         });
       });
@@ -225,7 +225,7 @@
 
       // 各クラブ・各種目のスコア集計
       const teamRows = clubEntries.map(entry => {
-        const { bibs, category, club, clubNames } = entry;
+        const { members: teamMembers, category, club, clubNames } = entry;
 
         // 各対象種目で各メンバーのスコアを集める
         const apparatusScores = {}; // ap → { memberScores:[{bib,name,score}], adopted, dropped, subTotal }
@@ -236,8 +236,8 @@
           const isVTAp = ap === 'MAG_VT' || ap === 'WAG_VT';
           const memberScores = [];
 
-          bibs.forEach(bib => {
-            const member = state.roster.find(r => r.bib === bib && r.gender === gender);
+          teamMembers.forEach(member => {
+            const bib = member.bib;
             let score = null;
             if (isVTAp) {
               score = getVTScoreForTeam(gender, bib, vtTeamScore, state);
@@ -246,7 +246,7 @@
               score = c ? Number(c.finalScore) : null;
             }
             if (score !== null) {
-              memberScores.push({ bib, name: member?.name || bib, score });
+              memberScores.push({ bib, name: member.name || bib, score });
             }
           });
 
@@ -260,7 +260,7 @@
           apparatusScores[ap] = { memberScores, adopted, dropped, subTotal };
         });
 
-        return { gender, category, club, clubNames: [...(clubNames||[])], total: floorTo3(grandTotal), apparatusScores, bibs };
+        return { gender, category, club, clubNames: [...(clubNames||[])], total: floorTo3(grandTotal), apparatusScores, members: teamMembers };
       });
 
       // カテゴリーごとにグループ化してランク付け
@@ -345,7 +345,7 @@
       rows.forEach(row => {
         html += `<tr>
           <td class="rank ${rankClass(row.rank)}">${row.rank}</td>
-          <td><div class="team-name">${row.club}</div><div class="member-count">${row.clubNames && row.clubNames.length ? row.clubNames.join(' / ') + ' ・ ' : ''}登録${row.bibs.length}名</div></td>
+          <td><div class="team-name">${row.club}</div><div class="member-count">${row.clubNames && row.clubNames.length ? row.clubNames.join(' / ') + ' ・ ' : ''}登録${row.members.length}名</div></td>
           ${apOrder.map(ap => {
             const as = row.apparatusScores[ap];
             if (!as) return `<td class="score-cell">—</td>`;
@@ -358,10 +358,9 @@
           html += `<tr class="detail-row"><td colspan="${2 + apOrder.length + 1}">
             <table class="member-table"><tbody>`;
           // 全メンバーBIBを集めて行を作る
-          const allBibs = row.bibs;
-          allBibs.forEach(bib => {
-            const member = appState.roster.find(r => r.bib === bib && r.gender === gender);
-            const name = member?.name || bib;
+          row.members.forEach(member => {
+            const bib = member.bib;
+            const name = member.name || bib;
             html += `<tr><td style="color:#aaa;min-width:120px">${bib} ${name}</td>`;
             apOrder.forEach(ap => {
               const as = row.apparatusScores[ap];
