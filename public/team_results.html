@@ -202,19 +202,21 @@
         cats.forEach(c => { if (!catSeen.has(c)) { catSeen.add(c); categoryOrder.push(c); } });
       });
 
-      // 所属ごとに集計
-      const clubMap = {}; // club → { category, bibs:Set }
+      // チーム名ごとに集計（teamName が空の場合は所属名をチーム名として使用）
+      const clubMap = {}; // teamLabel → { category, teamLabel, bibs:Set }
 
       members.forEach(r => {
+        const teamLabel = (r.teamName && r.teamName.trim()) || r.club;
         const cats = Array.isArray(r.category) ? r.category : [r.category || ''];
         cats.forEach(cat => {
-          const key = `${cat}__${r.club}`;
-          if (!clubMap[key]) clubMap[key] = { gender, category: cat, club: r.club, bibs: [] };
+          const key = `${cat}__${teamLabel}`;
+          if (!clubMap[key]) clubMap[key] = { gender, category: cat, club: teamLabel, bibs: [], clubNames: new Set() };
           if (!clubMap[key].bibs.includes(r.bib)) clubMap[key].bibs.push(r.bib);
+          if (r.club) clubMap[key].clubNames.add(r.club);
         });
       });
 
-      // カテゴリー→クラブ順に並べる
+      // カテゴリー→チーム名順に並べる
       const clubEntries = Object.values(clubMap);
       clubEntries.sort((a, b) => {
         const ci = categoryOrder.indexOf(a.category) - categoryOrder.indexOf(b.category);
@@ -223,7 +225,7 @@
 
       // 各クラブ・各種目のスコア集計
       const teamRows = clubEntries.map(entry => {
-        const { bibs, category, club } = entry;
+        const { bibs, category, club, clubNames } = entry;
 
         // 各対象種目で各メンバーのスコアを集める
         const apparatusScores = {}; // ap → { memberScores:[{bib,name,score}], adopted, dropped, subTotal }
@@ -258,7 +260,7 @@
           apparatusScores[ap] = { memberScores, adopted, dropped, subTotal };
         });
 
-        return { gender, category, club, total: floorTo3(grandTotal), apparatusScores, bibs };
+        return { gender, category, club, clubNames: [...(clubNames||[])], total: floorTo3(grandTotal), apparatusScores, bibs };
       });
 
       // カテゴリーごとにグループ化してランク付け
@@ -334,7 +336,7 @@
         <div class="sheet-subtitle">上位${countBest}名合計 ／ 対象種目: ${apOrder.map(a => apparatusShort(a)).join(' ')}</div>
         <table>
           <thead><tr>
-            <th>順位</th><th>チーム（所属）</th>
+            <th>順位</th><th>チーム</th>
             ${apOrder.map(a => `<th>${apparatusShort(a)}</th>`).join('')}
             <th>合計</th>
           </tr></thead>
@@ -343,7 +345,7 @@
       rows.forEach(row => {
         html += `<tr>
           <td class="rank ${rankClass(row.rank)}">${row.rank}</td>
-          <td><div class="team-name">${row.club}</div><div class="member-count">登録${row.bibs.length}名</div></td>
+          <td><div class="team-name">${row.club}</div><div class="member-count">${row.clubNames && row.clubNames.length ? row.clubNames.join(' / ') + ' ・ ' : ''}登録${row.bibs.length}名</div></td>
           ${apOrder.map(ap => {
             const as = row.apparatusScores[ap];
             if (!as) return `<td class="score-cell">—</td>`;
