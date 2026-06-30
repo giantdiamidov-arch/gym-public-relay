@@ -20,6 +20,14 @@ const path = require('path');
 const WebSocket = require('ws');
 
 const PORT = process.env.PORT || 3000;
+
+// ── サーバー全体のクラッシュ防止 ──
+process.on('uncaughtException', (err) => {
+  console.error('🚨 uncaughtException（サーバーは継続動作します）:', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('🚨 unhandledRejection（サーバーは継続動作します）:', reason);
+});
 // 会場のserver.jsと共有する合言葉。admin.html側の「中継サーバー設定」に
 // 同じ文字列を入力してもらう。未設定の場合は認証なし（テスト用途のみ推奨）。
 const RELAY_KEY = process.env.RELAY_KEY || '';
@@ -81,11 +89,7 @@ const server = http.createServer((req, res) => {
   // 簡易ヘルスチェック（Render等のスリープ防止・動作確認用）
   if (req.method === 'GET' && req.url === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      status: 'ok',
-      confirmedCount: publicState.confirmed.length,
-      publicEnabled: publicState.settings?.publicEnabled !== false,
-    }));
+    res.end(JSON.stringify({ status: 'ok', confirmedCount: publicState.confirmed.length }));
     return;
   }
 
@@ -123,6 +127,10 @@ wss.on('connection', (ws) => {
   clients.add(ws);
   // 接続直後に現在の公開状態を送る（display.html / scoreboard.html がそのまま使える形式）
   ws.send(JSON.stringify({ type: 'INIT', state: publicState }));
+
+  ws.on('error', (err) => {
+    console.error('⚠️ WebSocketエラー（観覧者接続を切断します）:', err.message);
+  });
 
   // 【重要・閲覧専用ガード】
   // 観覧者側からのメッセージは一切信用しない。PING（接続維持）にのみ応答し、
