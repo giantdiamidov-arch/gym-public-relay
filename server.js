@@ -89,7 +89,7 @@ const server = http.createServer((req, res) => {
   // 簡易ヘルスチェック（Render等のスリープ防止・動作確認用）
   if (req.method === 'GET' && req.url === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ status: 'ok', confirmedCount: publicState.confirmed.length }));
+    res.end(JSON.stringify({ status: 'ok', confirmedCount: publicState.confirmed.length, publicEnabled: publicState.settings?.publicEnabled !== false }));
     return;
   }
 
