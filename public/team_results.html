@@ -52,9 +52,7 @@
   .score-dim { color:#3a5a3a; font-size:12px; font-variant-numeric:tabular-nums; }
   .member-count { font-size:11px; color:#7a8a99; white-space:nowrap; }
 
-  .detail-row td { padding:4px 10px 10px 52px; font-size:12px; color:#7a8a99; border-bottom:1px solid #1a2a3a; }
-  .member-table { width:100%; border-collapse:collapse; margin-top:4px; }
-  .member-table td { padding:3px 8px; font-size:12px; border:none; }
+  .detail-row td { padding:5px 10px; font-size:12px; color:#7a8a99; border-bottom:1px solid #1a2a3a; }
   .member-used { color:#4adf8f; }
   .member-dropped { color:#3a5a4a; }
   .adopted-badge { font-size:10px; background:#1a2a3a; border:1px solid #dfaf4a; color:#dfaf4a; border-radius:4px; padding:1px 5px; margin-left:4px; }
@@ -391,13 +389,11 @@
         </tr>`;
 
         if (showDetail) {
-          html += `<tr class="detail-row"><td colspan="${2 + apOrder.length + 1}">
-            <table class="member-table"><tbody>`;
-          // 全メンバーBIBを集めて行を作る
+          // 外側のテーブルと同じ列構成でメンバー詳細行を直接出力（列ズレ防止のためネストテーブルを使わない）
           row.members.forEach(member => {
             const bib = member.bib;
             const name = member.name || bib;
-            html += `<tr><td style="color:#aaa;min-width:120px">${bib} ${name}</td>`;
+            html += `<tr class="detail-row"><td></td><td style="color:#aaa;padding-left:24px">${bib} ${name}</td>`;
             apOrder.forEach(ap => {
               const as = row.apparatusScores[ap];
               if (!as) { html += `<td>—</td>`; return; }
@@ -408,9 +404,8 @@
                 ? `<td class="member-used">${fmtScore(ms.score)}<span class="adopted-badge">採用</span></td>`
                 : `<td class="member-dropped">${fmtScore(ms.score)}</td>`;
             });
-            html += `</tr>`;
+            html += `<td></td></tr>`;
           });
-          html += `</tbody></table></td></tr>`;
         }
       });
 
