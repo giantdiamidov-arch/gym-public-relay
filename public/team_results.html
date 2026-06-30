@@ -104,11 +104,13 @@
   </div>
 </div>
 
-<div class="controls">
+<div class="controls" id="controls">
   <span class="control-label">性別</span>
-  <div class="filter-btn active" id="fb-ALL" onclick="setFilter('ALL')">すべて</div>
-  <div class="filter-btn" id="fb-MAG" onclick="setFilter('MAG')">MAG</div>
-  <div class="filter-btn" id="fb-WAG" onclick="setFilter('WAG')">WAG</div>
+  <div class="filter-btn active" id="fb-ALL" onclick="setFilter('gender','ALL')">すべて</div>
+  <div class="filter-btn" id="fb-MAG" onclick="setFilter('gender','MAG')">MAG</div>
+  <div class="filter-btn" id="fb-WAG" onclick="setFilter('gender','WAG')">WAG</div>
+  <span class="control-label" style="margin-left:14px">カテゴリー</span>
+  <div id="category-filters" style="display:flex;gap:8px;flex-wrap:wrap"></div>
   <div style="flex:1"></div>
   <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#7a8a99;cursor:pointer">
     <input type="checkbox" id="show-detail" onchange="render()"> メンバー詳細を表示
@@ -122,6 +124,7 @@
 <script>
   let appState = null;
   let filterGender = 'ALL';
+  let filterCategory = 'ALL';
 
   // ── WebSocket接続 ──
   const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -148,12 +151,42 @@
     }
   });
 
-  function setFilter(g) {
-    filterGender = g;
+  function setFilter(type, val) {
+    if (type === 'gender') {
+      filterGender = val;
+      filterCategory = 'ALL'; // 性別を変えたらカテゴリーは全てに戻す
+    } else if (type === 'cat') {
+      filterCategory = val;
+    }
+    render();
+  }
+
+  // ロスターから現在の性別フィルターに合致するカテゴリー一覧を抽出（団体メンバーのみ対象）
+  function collectCategories(state, genderFilter) {
+    const cats = [];
+    const seen = new Set();
+    (state.roster || []).forEach(r => {
+      if (!r.teamMember) return;
+      if (genderFilter !== 'ALL' && r.gender !== genderFilter) return;
+      const rc = Array.isArray(r.category) ? r.category : [r.category || ''];
+      rc.forEach(c => { if (c && !seen.has(c)) { seen.add(c); cats.push(c); } });
+    });
+    return cats;
+  }
+
+  function renderControls() {
+    // 性別ボタンの active 状態
     ['ALL','MAG','WAG'].forEach(id => {
       document.getElementById(`fb-${id}`).className = 'filter-btn' + (filterGender === id ? ' active' : '');
     });
-    render();
+    // カテゴリーボタンを動的生成
+    const cats = collectCategories(appState || { roster: [] }, filterGender);
+    const catBox = document.getElementById('category-filters');
+    let html = `<div class="filter-btn ${filterCategory === 'ALL' ? 'active' : ''}" onclick="setFilter('cat','ALL')">全て</div>`;
+    cats.forEach(c => {
+      html += `<div class="filter-btn ${filterCategory === c ? 'active' : ''}" onclick="setFilter('cat','${c}')">${c}</div>`;
+    });
+    catBox.innerHTML = html;
   }
 
   // ── VT スコアを「確定済み1本分」として取得 ──
@@ -178,7 +211,8 @@
 
   // ── 団体集計 ──
   // 戻り値: [{ gender, category, club, total, apparatusScores:{ap:{scores,adopted,dropped}}, rank }]
-  function buildTeamGroups(state, genderFilter) {
+  function buildTeamGroups(state, genderFilter, categoryFilter) {
+    categoryFilter = categoryFilter || 'ALL';
     const settings = state.settings || {};
     if (!settings.teamEnabled) return null; // 団体無効
 
@@ -271,6 +305,7 @@
       });
 
       categoryOrder.forEach(cat => {
+        if (categoryFilter !== 'ALL' && cat !== categoryFilter) return;
         const rows = catGroups[cat];
         if (!rows || rows.length === 0) return;
         rows.sort((a, b) => b.total - a.total);
@@ -298,6 +333,7 @@
   function fmtScore(v) { return v === null ? '—' : Number(v).toFixed(3); }
 
   function render() {
+    renderControls();
     const main = document.getElementById('main');
     if (!appState) return;
 
@@ -309,7 +345,7 @@
       return;
     }
 
-    const groups = buildTeamGroups(appState, filterGender);
+    const groups = buildTeamGroups(appState, filterGender, filterCategory);
     if (!groups || groups.length === 0) {
       main.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div>
         <div>団体メンバーが登録されていません。</div>
@@ -388,7 +424,7 @@
     if (!appState) return;
     const settings = appState.settings || {};
     if (!settings.teamEnabled) { alert('団体総合が無効です'); return; }
-    const groups = buildTeamGroups(appState, filterGender);
+    const groups = buildTeamGroups(appState, filterGender, filterCategory);
     if (!groups || groups.length === 0) { alert('出力できるデータがありません'); return; }
 
     const targetOrders = { MAG: MAG_ORDER, WAG: WAG_ORDER };
