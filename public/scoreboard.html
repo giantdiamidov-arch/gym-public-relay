@@ -147,6 +147,7 @@
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
       if (msg.type === 'INIT' || msg.type === 'STATE_UPDATE') {
+        applyPublicEnabledState(msg.state.settings);
         const isNew = confirmed.length > 0 && (msg.state.confirmed || []).length > confirmed.length;
         confirmed = msg.state.confirmed || [];
         window._roster   = msg.state.roster   || [];

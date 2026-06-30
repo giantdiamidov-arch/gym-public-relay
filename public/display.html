@@ -209,7 +209,7 @@
     const a=APPARATUS[myApparatus];
     document.getElementById('disp-apparatus').textContent=`${a.icon} ${a.gender} ${a.label}`;
     document.getElementById('disp-apparatus-full').textContent=a.full;
-    connectWS();
+    if (!ws || ws.readyState !== 1) connectWS();
   }
   function changeApparatus() {
     document.getElementById('settings-panel').className='settings-panel';
@@ -228,7 +228,12 @@
     setTimeout(startDisplay, 100);
   }
 
+  // ページ読み込み時から接続開始（種目選択前の#setup画面でも公開オン/オフ判定が効くように）
+  if (!ws) connectWS();
+
   // ── WebSocket ──
+  // 種目選択画面（#setup）が出ている間も公開オン/オフの状態だけは把握したいので、
+  // ページ読み込み時点で接続を開始する（種目固有の表示開始はstartDisplay()が担う）。
   function connectWS() {
     const proto=location.protocol==='https:'?'wss':'ws';
     ws=new WebSocket(`${proto}://${location.host}`);
@@ -237,6 +242,7 @@
     ws.onmessage=(e)=>{
       const msg=JSON.parse(e.data);
       if(msg.type==='INIT'||msg.type==='STATE_UPDATE') {
+        applyPublicEnabledState((msg.state||{}).settings);
         stateData=msg.state;
         // 編集・取り消しなど明示的なユーザー操作による更新では自動切り替えしない
         // （「場内表示に反映しますか？」で「はい」を選んだ場合のみ DISPLAY_FORCE_SHOW で切り替える）

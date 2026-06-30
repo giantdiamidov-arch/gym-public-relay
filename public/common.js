@@ -56,3 +56,40 @@ function calcEAvgWithSettings(eScores, settings) {
 function isVT(apparatus) {
   return apparatus === 'MAG_VT' || apparatus === 'WAG_VT';
 }
+
+// ── 公開オン/オフ制御 ──
+// 会場側admin.htmlの設定（settings.publicEnabled）がfalseの場合、
+// 試験運用中などで観覧者に見せたくない状態であることを示す。
+// 全ページ共通で「次の大会までお待ちください」のオーバーレイを表示する。
+function showPublicDisabledOverlay() {
+  if (document.getElementById('public-disabled-overlay')) return;
+  const overlay = document.createElement('div');
+  overlay.id = 'public-disabled-overlay';
+  overlay.style.cssText = `
+    position:fixed; inset:0; z-index:99999;
+    background:#0f1923; color:#fff;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    font-family:'Helvetica Neue',Arial,sans-serif; text-align:center; padding:24px;
+  `;
+  overlay.innerHTML = `
+    <div style="font-size:48px;margin-bottom:16px">🤸</div>
+    <div style="font-size:20px;font-weight:700;margin-bottom:8px">次の大会までお待ちください</div>
+    <div style="font-size:13px;color:#7a8a99;max-width:320px;line-height:1.6">
+      現在このページは公開されていません。<br>大会開催時に改めてご確認ください。
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+function hidePublicDisabledOverlay() {
+  const el = document.getElementById('public-disabled-overlay');
+  if (el) el.remove();
+}
+// settingsオブジェクトを受け取り、publicEnabled===falseならオーバーレイ表示、
+// それ以外（true・未設定どちらも公開扱い＝既存動作との後方互換）なら隠す。
+function applyPublicEnabledState(settings) {
+  if (settings && settings.publicEnabled === false) {
+    showPublicDisabledOverlay();
+  } else {
+    hidePublicDisabledOverlay();
+  }
+}

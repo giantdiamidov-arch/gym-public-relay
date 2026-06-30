@@ -160,6 +160,7 @@
       let msg;
       try { msg = JSON.parse(e.data); } catch (err) { return; }
       if (msg.type === 'INIT' || msg.type === 'STATE_UPDATE') {
+        applyPublicEnabledState((msg.state || {}).settings);
         appState = msg.state || appState;
         renderControls();
         render();
