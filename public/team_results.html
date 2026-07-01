@@ -98,7 +98,6 @@
     <span><span class="conn-dot" id="conn-dot"></span><span id="conn-label" style="font-size:12px;color:#7a8a99">接続中...</span></span>
     <button class="btn btn-green" onclick="render()">🔄 更新</button>
     <button class="btn btn-blue" onclick="window.print()">🖨️ 印刷</button>
-    <button class="btn btn-blue" onclick="downloadCSV()">📥 CSV</button>
   </div>
 </div>
 
@@ -413,46 +412,6 @@
       html += `</tbody></table></div>`;
       return html;
     }).join('');
-  }
-
-  // ── CSV出力 ──
-  function downloadCSV() {
-    if (!appState) return;
-    const settings = appState.settings || {};
-    if (!settings.teamEnabled) { alert('団体総合が無効です'); return; }
-    const groups = buildTeamGroups(appState, filterGender, filterCategory);
-    if (!groups || groups.length === 0) { alert('出力できるデータがありません'); return; }
-
-    const targetOrders = { MAG: MAG_ORDER, WAG: WAG_ORDER };
-    const rows = [['性別','カテゴリー','順位','チーム','採用人数','種目','種目合計','総合合計']];
-
-    groups.forEach(g => {
-      const { gender, category, rows: teamRows, teamCfg } = g;
-      const apOrder = (targetOrders[gender] || []).filter(a => teamCfg.apparatus.includes(a));
-      teamRows.forEach(row => {
-        apOrder.forEach(ap => {
-          const as = row.apparatusScores[ap];
-          rows.push([
-            gender, category, row.rank, row.club,
-            teamCfg.countBest,
-            apparatusShort(ap),
-            as ? fmtScore(as.subTotal) : '—',
-            fmtScore(row.total),
-          ]);
-        });
-      });
-    });
-
-    const bom = '\uFEFF';
-    const csv = bom + rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const now = new Date();
-    a.download = `team_results_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
   }
 </script>
 </body>
