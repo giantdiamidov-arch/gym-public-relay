@@ -314,14 +314,15 @@
     const genders = filterGender === 'ALL' ? ['MAG', 'WAG'] : [filterGender];
     const groups = [];
 
-    const rosterCatMap = {};
-    (appState.roster || []).forEach(r => {
-      rosterCatMap[r.bib] = Array.isArray(r.category) ? r.category : (r.category ? [r.category] : [UNCATEGORIZED]);
-    });
+    // 確定得点に記録された athlete.category をそのまま信頼する。
+    // roster を bib で逆引きする方式（旧実装）は、BIBがカテゴリーをまたいで
+    // （場合によっては同性別内でも）重複する運用だと、後から読み込まれた
+    // ロスター行が先の行を上書きしてしまい、別カテゴリーの選手を誤って
+    // 引き当てる／該当選手が消えるバグがあったため使わない。
     function athleteInCat(row, cat) {
-      const bib = row.athlete?.bib;
-      if (bib && rosterCatMap[bib]) return rosterCatMap[bib].includes(cat);
-      return (row.athlete?.category || UNCATEGORIZED) === cat;
+      const raw = row.athlete?.category;
+      const cats = Array.isArray(raw) ? raw : (raw ? [raw] : [UNCATEGORIZED]);
+      return cats.includes(cat);
     }
 
     if (mode === 'apparatus') {
