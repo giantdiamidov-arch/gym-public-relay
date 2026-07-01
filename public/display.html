@@ -316,6 +316,7 @@
       html+=`<div class="score-final-box"><div class="lbl">SCORE（${methodLabel}）</div><div class="val">${Number(r.finalScore).toFixed(3)}</div></div>`;
       html+='</div>';
       main.innerHTML=html;
+      fitScoreDisplay();
       return;
     }
 
@@ -345,7 +346,23 @@
     html+='</div>';
 
     main.innerHTML=html;
+    fitScoreDisplay();
   }
+
+  // ── auto-fit: コンテンツが縦にはみ出す場合に縮小 ──
+  function fitScoreDisplay() {
+    requestAnimationFrame(()=>{
+      const container = document.getElementById('disp-main');
+      const content = container.querySelector('.score-display');
+      if (!content) return;
+      content.style.transform = '';
+      const scaleH = container.clientHeight / content.scrollHeight;
+      const scaleW = container.clientWidth  / content.scrollWidth;
+      const scale = Math.min(scaleH, scaleW, 1);
+      if (scale < 0.99) content.style.transform = `scale(${scale})`;
+    });
+  }
+  window.addEventListener('resize', ()=>{ if(latestScore) renderScore(); });
 
   // 設定パネル以外をクリックで閉じる
   document.addEventListener('click', e=>{
