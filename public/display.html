@@ -28,7 +28,7 @@
   .btn-start:disabled { background:#2a3a4a; color:#4a5a6a; cursor:not-allowed; }
 
   /* 表示画面 */
-  #display { display:none; flex-direction:column; min-height:100vh; background:#000; position:relative; }
+  #display { display:none; flex-direction:column; height:100vh; background:#000; position:relative; overflow:hidden; }
 
   /* ヘッダー */
   .disp-header { padding:20px 40px; display:flex; align-items:center; justify-content:space-between; border-bottom:2px solid #1a2634; }
@@ -38,7 +38,7 @@
   .conn-dot.ok { background:#4adf8f; }
 
   /* メインコンテンツ */
-  .disp-main { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px; }
+  .disp-main { flex:1; min-height:0; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px; overflow:hidden; }
 
   /* 待機状態 */
   .waiting { text-align:center; color:#2a3a4a; }
