@@ -210,6 +210,25 @@
     document.getElementById('disp-apparatus').textContent=`${a.icon} ${a.gender} ${a.label}`;
     document.getElementById('disp-apparatus-full').textContent=a.full;
     if (!ws || ws.readyState !== 1) connectWS();
+    // 途中アクセス対応: myApparatus確定後にキャッシュ済み状態から即時表示する。
+    // （ページロード時点でINITが届いてもmyApparatusがnullで表示できなかったケースを救済）
+    initDisplayFromState();
+  }
+
+  // 現在キャッシュしているstateDataから、myApparatusの最新確定得点を表示に反映する。
+  // INITハンドラと同じロジックなので、修正ダイアログ制御（FORCE_SHOW / skipDisplayAuto）には影響しない。
+  function initDisplayFromState() {
+    if (!stateData || !myApparatus) return;
+    const appConfirmed = (stateData.confirmed || []).filter(r => r.apparatus === myApparatus);
+    const vtFinalsForApp = Object.values(stateData.vtFinals || {}).filter(v => v.apparatus === myApparatus);
+    const candidates = [...appConfirmed, ...vtFinalsForApp];
+    if (candidates.length > 0) {
+      const newLatest = candidates.reduce((a, b) => new Date(b.confirmedAt) > new Date(a.confirmedAt) ? b : a);
+      if (!latestScore || JSON.stringify(newLatest) !== JSON.stringify(latestScore)) {
+        latestScore = newLatest;
+        renderScore();
+      }
+    }
   }
   function changeApparatus() {
     document.getElementById('settings-panel').className='settings-panel';
