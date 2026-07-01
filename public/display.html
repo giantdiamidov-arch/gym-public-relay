@@ -356,8 +356,11 @@
       const content = container.querySelector('.score-display');
       if (!content) return;
       content.style.transform = '';
-      const scaleH = container.clientHeight / content.scrollHeight;
-      const scaleW = container.clientWidth  / content.scrollWidth;
+      const cs = window.getComputedStyle(container);
+      const padV = parseFloat(cs.paddingTop)  + parseFloat(cs.paddingBottom);
+      const padH = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+      const scaleH = (container.clientHeight - padV) / content.scrollHeight;
+      const scaleW = (container.clientWidth  - padH) / content.scrollWidth;
       const scale = Math.min(scaleH, scaleW, 1);
       if (scale < 0.99) content.style.transform = `scale(${scale})`;
     });
