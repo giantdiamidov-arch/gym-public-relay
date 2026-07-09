@@ -178,8 +178,10 @@
         cats.forEach(c => { if (!seen.has(c)) { seen.add(c); order.push(c); } });
       });
       confirmed.forEach(r => {
-        const c = r.athlete?.category;
-        if (c && !seen.has(c)) { seen.add(c); order.push(c); }
+        // athlete.category は複数カテゴリー配列のことがあるため、roster側と同様にフラット化してから追加する
+        const raw = r.athlete?.category;
+        const rCats = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+        rCats.forEach(c => { if (c && !seen.has(c)) { seen.add(c); order.push(c); } });
       });
       return order;
     }
@@ -272,9 +274,8 @@
       if (filterCat!=='ALL') {
         const bib = r.athlete?.bib;
         const rosterEntry = (window._roster||[]).find(e => e.bib === bib);
-        const cats = rosterEntry
-          ? (Array.isArray(rosterEntry.category) ? rosterEntry.category : (rosterEntry.category ? [rosterEntry.category] : []))
-          : (r.athlete?.category ? [r.athlete.category] : []);
+        const rawCat = rosterEntry ? rosterEntry.category : r.athlete?.category;
+        const cats = Array.isArray(rawCat) ? rawCat : (rawCat ? [rawCat] : []);
         if (!cats.includes(filterCat)) return false;
       }
       if (filterApp!=='ALL' && r.apparatus!==filterApp) return false;

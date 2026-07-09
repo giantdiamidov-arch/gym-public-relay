@@ -330,7 +330,7 @@
       html+=`<div class="athlete-row">`;
       if(get('opt-bib')) html+=`<div class="athlete-bib">${r.athlete?.bib||''}</div>`;
       html+=`<div><div class="athlete-name">${r.athlete?.name||''}${r.hanaMaru?'<span style="font-size:inherit;margin-left:12px">🌸</span>':''}</div>`;
-      if(get('opt-org')) html+=`<div class="athlete-org"><span class="athlete-cat">${r.athlete?.category||''}</span>${r.athlete?.club||''}</div>`;
+      if(get('opt-org')) html+=`<div class="athlete-org"><span class="athlete-cat">${Array.isArray(r.athlete?.category)?r.athlete.category.join('|'):(r.athlete?.category||'')}</span>${r.athlete?.club||''}</div>`;
       html+=`</div></div>`;
       const methodLabel = r.method==='avg' ? '2本平均' : '高い方採用';
       const bonusVal = Number(r.bonus) || 0;

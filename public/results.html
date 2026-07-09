@@ -252,8 +252,10 @@
       cats.forEach(c => { if (!seen.has(c)) { seen.add(c); order.push(c); } });
     });
     rows.forEach(r => {
-      const c = r.athlete?.category || UNCATEGORIZED;
-      if (!seen.has(c)) { seen.add(c); order.push(c); }
+      // athlete.category は複数カテゴリー配列のことがあるため、roster側と同様にフラット化してから追加する
+      const raw = r.athlete?.category;
+      const cats = Array.isArray(raw) ? raw : (raw ? [raw] : [UNCATEGORIZED]);
+      cats.forEach(c => { if (!seen.has(c)) { seen.add(c); order.push(c); } });
     });
     return order;
   }
