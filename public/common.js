@@ -57,6 +57,21 @@ function isVT(apparatus) {
   return apparatus === 'MAG_VT' || apparatus === 'WAG_VT';
 }
 
+// category（文字列 or 複数カテゴリー配列）を、キー生成用に正規化する。
+// 配列の場合は並び順に依存しないようソートしてから連結する。
+function categoryKey(category) {
+  if (Array.isArray(category)) return category.slice().sort().join(',');
+  return category ? String(category) : '';
+}
+
+// VT（跳馬）採用得点（vtFinals）のキーを生成する。
+// 同じ性別内でBIB番号がカテゴリーをまたいで重複するケース（例: U12とU15で同じBIBを
+// 使い回す大会）があるため、apparatus + bib だけでなく category も含めて選手を一意に
+// 識別する。category は各呼び出し側が保持している athlete.category をそのまま渡すこと。
+function vtKey(apparatus, bib, category) {
+  return apparatus + '|' + bib + '|' + categoryKey(category);
+}
+
 // 選手名簿から性別+BIBで該当選手を検索し、カテゴリー（文字列 or 複数カテゴリー配列）を返す
 function findRosterCategory(roster, gender, bib) {
   const r = (roster || []).find(a => a.gender === gender && String(a.bib) === String(bib));
@@ -93,9 +108,12 @@ function resolveVtSettings(settings, gender, category) {
 // 生スコアの方が新しく見えて選ばれてしまうことがあるため、この関数で確実に統合結果を優先する。
 function pickLatestDisplayCandidate(confirmed, vtFinals, apparatus) {
   const vtFinalsForApp = Object.values(vtFinals || {}).filter(v => v.apparatus === apparatus);
-  const vtFinalBibs = new Set(vtFinalsForApp.map(v => v.athlete?.bib));
+  // 同じ性別内でBIBがカテゴリーをまたいで重複することがあるため、BIB単独ではなく
+  // BIB+カテゴリーの組み合わせで「採用得点が計算済みの選手」を識別する
+  // （BIBのみで識別すると、別カテゴリーの同BIB選手の生スコアまで誤って除外・混同してしまう）。
+  const vtFinalKeys = new Set(vtFinalsForApp.map(v => v.athlete?.bib + '|' + categoryKey(v.athlete?.category)));
   const rawConfirmed = (confirmed || []).filter(r =>
-    r.apparatus === apparatus && !(r.athlete?.vtVault && vtFinalBibs.has(r.athlete?.bib))
+    r.apparatus === apparatus && !(r.athlete?.vtVault && vtFinalKeys.has(r.athlete?.bib + '|' + categoryKey(r.athlete?.category)))
   );
   const candidates = [...rawConfirmed, ...vtFinalsForApp];
   if (candidates.length === 0) return null;

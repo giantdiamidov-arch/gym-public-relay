@@ -241,14 +241,15 @@
       let vault1=null, vault2=null;
       if (r.athlete.vtVault===1) { vault1=r; } else { vault2=r; }
       const pairIdx = confirmed.findIndex((o,j)=> j!==idx && !consumedIdx.has(j) &&
-        o.apparatus===r.apparatus && o.athlete?.bib===bib && o.athlete?.vtVault && o.athlete.vtVault!==r.athlete.vtVault);
+        o.apparatus===r.apparatus && o.athlete?.bib===bib && o.athlete?.vtVault && o.athlete.vtVault!==r.athlete.vtVault &&
+        categoryKey(o.athlete?.category) === categoryKey(r.athlete?.category));
       if (pairIdx!==-1) {
         const o = confirmed[pairIdx];
         if (o.athlete.vtVault===1) { vault1=o; } else { vault2=o; }
         consumedIdx.add(pairIdx);
       }
       consumedIdx.add(idx);
-      const key = r.apparatus+'|'+bib;
+      const key = vtKey(r.apparatus, bib, r.athlete?.category);
       const vf = vtFinals[key] || null;
       const canonicalAthlete = vault1 ? vault1.athlete : { ...r.athlete, name: String(r.athlete.name||'').replace(/（2本目）$/,'') };
       rows.push({

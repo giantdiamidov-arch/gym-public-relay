@@ -208,14 +208,20 @@
     // VT跳躍数は性別・カテゴリー別の上書き設定があり得るため、対象カテゴリーで解決する
     const vtVaults = resolveVtSettings(state.settings, gender, category).vtVaults;
     if (vtVaults >= 2) {
-      const key = ap + '|' + bib;
-      const vf = state.vtFinals?.[key];
-      if (!vf || !categoryMatches(vf.athlete?.category, category)) return null;
+      // vtFinalsのキーには選手登録時のathlete.category（複数カテゴリー配列の場合あり）がそのまま
+      // 使われているため、団体集計対象の単一カテゴリー文字列とは完全一致しないことがある。
+      // bib一致に加えてcategoryMatchesで対象カテゴリーを含むかどうかを判定する。
+      const vf = Object.values(state.vtFinals || {}).find(v =>
+        v.apparatus === ap && v.athlete?.bib === bib && categoryMatches(v.athlete?.category, category)
+      );
+      if (!vf) return null;
       if (vtTeamScore === 'v1') return Number(vf.vault1Score);
       if (vtTeamScore === 'v2') return Number(vf.vault2Score);
-      // 'best': 高い方採用。個人の統合得点への加点(vf.bonus)は、個人の採用方式(avg/best)に関わらず
-      // 「その選手の跳馬得点に対する加点」という扱いのため、団体の「高い方」採用時にも反映する。
+      // 'best'/'avg' 共通：個人の統合得点への加点(vf.bonus)は、個人の採用方式(avg/best)に関わらず
+      // 「その選手の跳馬得点に対する加点」という扱いのため、団体の「高い方」「平均」採用時にも反映する。
       const bonus = Number(vf.bonus) || 0;
+      if (vtTeamScore === 'avg') return floorTo3((Number(vf.vault1Score) + Number(vf.vault2Score)) / 2 + bonus);
+      // 'best': 高い方採用
       return floorTo3(Math.max(Number(vf.vault1Score), Number(vf.vault2Score)) + bonus);
     } else {
       const c = state.confirmed.find(r => r.apparatus === ap && r.athlete.bib === bib && !r.isDNF && categoryMatches(r.athlete.category, category));
