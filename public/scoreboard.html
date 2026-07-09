@@ -226,13 +226,14 @@
   function buildVTDisplayRows() {
     const settings = window._settings || {};
     const vtFinals = window._vtFinals || {};
-    const vtMode = (apparatus) => isVT(apparatus) && (Number(settings.vtVaults)||1) >= 2;
+    // VT跳躍数は性別・カテゴリー別の上書き設定があり得るため、レコードごとのathlete.categoryで解決する
+    const vtMode = (r) => isVT(r.apparatus) && resolveVtSettings(settings, r.apparatus.split('_')[0], r.athlete?.category).vtVaults >= 2;
     const consumedIdx = new Set();
     const rows = [];
 
     confirmed.forEach((r, idx) => {
       if (consumedIdx.has(idx)) return;
-      if (!vtMode(r.apparatus) || !r.athlete?.vtVault) {
+      if (!vtMode(r) || !r.athlete?.vtVault) {
         rows.push(r);
         return;
       }
@@ -326,6 +327,8 @@
         const v2Score = v2 ? Number(v2.finalScore).toFixed(3) : '—';
         const finalDisp = vf ? Number(vf.finalScore).toFixed(3) : '—';
         const methodLabel = vf ? (vf.method==='avg' ? '2本平均' : `高い方:${vf.winnerVault}本目`) : '2本確定待ち';
+        const bonusVal = vf ? Number(vf.bonus || 0) : 0;
+        const bonusDisp = bonusVal ? `${bonusVal>0?'+':''}${bonusVal.toFixed(1)}` : '±0.0';
         html += `<tr class="${isNew?'new-entry':''}">
           <td class="rank ${showRank?rankClass:''}">${showRank ? i+1 : '—'}</td>
           <td style="color:#dfaf4a;font-weight:700;font-variant-numeric:tabular-nums">${r.athlete?.bib||''}</td>
@@ -336,7 +339,7 @@
           <td><span class="cat-tag">${(() => { const e=(window._roster||[]).find(x=>x.bib===r.athlete?.bib); return e ? (Array.isArray(e.category)?e.category.join('|'):(e.category||'')) : (r.athlete?.category||''); })()}</span></td>
           <td><span class="app-badge">${apparatusShort(r.apparatus)}</span></td>
           <td colspan="5" data-label="結果" style="text-align:center">
-            <div style="display:flex;justify-content:center;gap:18px;align-items:center;flex-wrap:wrap">
+            <div style="display:flex;justify-content:center;gap:18px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
               <div style="text-align:center">
                 <div style="font-size:10px;color:#7a8a99">1本目</div>
                 <div style="font-variant-numeric:tabular-nums">${v1Score}</div>
@@ -346,9 +349,14 @@
                 <div style="font-variant-numeric:tabular-nums">${v2Score}</div>
               </div>
               <div style="text-align:center">
-                <div style="font-size:10px;color:#dfaf4a">採用得点（${methodLabel}）</div>
-                <div class="score-final">${finalDisp}</div>
+                <div style="font-size:10px;color:#7a8a99">加点</div>
+                <div style="font-variant-numeric:tabular-nums;color:${bonusVal?'#4adf8f':'#7a8a99'}">${bonusDisp}</div>
               </div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-size:10px;color:#dfaf4a">採用得点（${methodLabel}）</div>
+              <div class="score-final">${finalDisp}</div>
+              ${bonusVal ? `<div style="font-size:10px;color:#7a8a99">内訳: 素点 ${Number(vf.baseFinalScore).toFixed(3)} ＋ 加点 ${bonusDisp}</div>` : ''}
             </div>
           </td>
           <td class="time-cell" data-label="時刻">${time}</td>

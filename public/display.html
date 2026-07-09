@@ -183,6 +183,14 @@
   let ws, myApparatus=null, selectedGender='MAG', selectedApp=null;
   let latestScore=null, stateData={};
 
+  // 場内表示の最低保持時間コントローラー（common.js）。
+  // 自動更新はこの経由で反映することで、確定が連続しても最低displayHoldSeconds秒は
+  // 現在の得点（特にVT2本平均/高い方の結果）が表示され続けるようにする。
+  const displayHold = createDisplayHold((candidate) => {
+    latestScore = candidate;
+    renderScore();
+  });
+
   // ── セットアップ ──
   function selGender(g) {
     selectedGender=g; selectedApp=null;
@@ -216,19 +224,12 @@
   }
 
   // 現在キャッシュしているstateDataから、myApparatusの最新確定得点を表示に反映する。
-  // INITハンドラと同じロジックなので、修正ダイアログ制御（FORCE_SHOW / skipDisplayAuto）には影響しない。
+  // 接続直後・種目選択直後のキャッチアップなので、保持時間やキューを待たず即座に反映する。
   function initDisplayFromState() {
     if (!stateData || !myApparatus) return;
-    const appConfirmed = (stateData.confirmed || []).filter(r => r.apparatus === myApparatus);
-    const vtFinalsForApp = Object.values(stateData.vtFinals || {}).filter(v => v.apparatus === myApparatus);
-    const candidates = [...appConfirmed, ...vtFinalsForApp];
-    if (candidates.length > 0) {
-      const newLatest = candidates.reduce((a, b) => new Date(b.confirmedAt) > new Date(a.confirmedAt) ? b : a);
-      if (!latestScore || JSON.stringify(newLatest) !== JSON.stringify(latestScore)) {
-        latestScore = newLatest;
-        renderScore();
-      }
-    }
+    // VT2本統合済みの選手は必ず採用得点（vtFinals）を優先する（common.jsのpickLatestDisplayCandidate参照）
+    const newLatest = pickLatestDisplayCandidate(stateData.confirmed, stateData.vtFinals, myApparatus);
+    if (newLatest) displayHold.forceShow(newLatest);
   }
   function changeApparatus() {
     document.getElementById('settings-panel').className='settings-panel';
@@ -260,35 +261,39 @@
     ws.onclose=()=>{ setConn(false); setTimeout(connectWS,2000); };
     ws.onmessage=(e)=>{
       const msg=JSON.parse(e.data);
-      if(msg.type==='INIT'||msg.type==='STATE_UPDATE') {
+      if(msg.type==='INIT') {
+        // 接続直後のキャッチアップ：保持時間・キューを待たず即座に反映する
+        applyPublicEnabledState((msg.state||{}).settings);
+        stateData=msg.state;
+        const newLatest = pickLatestDisplayCandidate(msg.state.confirmed, msg.state.vtFinals, myApparatus);
+        displayHold.forceShow(newLatest);
+      }
+      if(msg.type==='STATE_UPDATE') {
         applyPublicEnabledState((msg.state||{}).settings);
         stateData=msg.state;
         // 編集・取り消しなど明示的なユーザー操作による更新では自動切り替えしない
         // （「場内表示に反映しますか？」で「はい」を選んだ場合のみ DISPLAY_FORCE_SHOW で切り替える）
         if(msg.skipDisplayAuto) return;
-        // この種目の最新確定得点を取得（通常の確定エントリ＋VT採用得点の両方を候補にする）
-        const appConfirmed=(msg.state.confirmed||[]).filter(r=>r.apparatus===myApparatus);
-        const vtFinalsForApp = Object.values(msg.state.vtFinals||{}).filter(v=>v.apparatus===myApparatus);
-        const candidates = [...appConfirmed, ...vtFinalsForApp];
-        if(candidates.length>0) {
-          const newLatest = candidates.reduce((a,b)=> new Date(b.confirmedAt) > new Date(a.confirmedAt) ? b : a);
-          if(!latestScore||JSON.stringify(newLatest)!==JSON.stringify(latestScore)){
-            latestScore=newLatest;
-            renderScore();
-          }
+        // 中継サーバーは会場側の確定イベントを1件ずつではなく、都度の状態スナップショットとして
+        // 送ってくる（STATE_UPDATEのみ）ため、ここが唯一のライブ更新経路になる。
+        // VT2本統合済みの選手は必ず採用得点（vtFinals）を優先して候補にする。
+        const newLatest = pickLatestDisplayCandidate(msg.state.confirmed, msg.state.vtFinals, myApparatus);
+        if (newLatest) {
+          displayHold.scheduleAuto(newLatest, stateData.settings);
+        } else if (latestScore) {
+          displayHold.scheduleAuto(null, stateData.settings);
         }
       }
+      // 中継サーバーは現状 STATE_UPDATE と DISPLAY_FORCE_SHOW のみを配信するため、
+      // 以下の2つは将来の拡張に備えた保険的なハンドラ（通常は発火しない）
       if(msg.type==='SCORE_CONFIRMED'&&msg.result.apparatus===myApparatus){
-        latestScore=msg.result;
-        renderScore();
+        displayHold.scheduleAuto(msg.result, stateData.settings);
       }
       if(msg.type==='VT_FINAL_CONFIRMED'&&msg.apparatus===myApparatus){
-        latestScore=msg.result; // method/vault1Score/vault2Scoreを持つVT採用得点
-        renderScore();
+        displayHold.scheduleAuto(msg.result, stateData.settings); // method/vault1Score/vault2Scoreを持つVT採用得点
       }
       if(msg.type==='DISPLAY_FORCE_SHOW'&&msg.apparatus===myApparatus){
-        latestScore=msg.result;
-        flashAndRender();
+        displayHold.forceShow(msg.result, (candidate) => { latestScore=candidate; flashAndRender(); });
       }
     };
   }
@@ -328,11 +333,15 @@
       if(get('opt-org')) html+=`<div class="athlete-org"><span class="athlete-cat">${r.athlete?.category||''}</span>${r.athlete?.club||''}</div>`;
       html+=`</div></div>`;
       const methodLabel = r.method==='avg' ? '2本平均' : '高い方採用';
+      const bonusVal = Number(r.bonus) || 0;
+      const bonusDisp = bonusVal ? `${bonusVal>0?'+':''}${bonusVal.toFixed(1)}` : '±0.0';
       html+='<div class="scores-row">';
       html+=`<div class="score-box d"><div class="lbl">1本目</div><div class="val">${Number(r.vault1Score).toFixed(3)}</div></div>`;
       html+=`<div class="score-box eavg"><div class="lbl">2本目</div><div class="val">${Number(r.vault2Score).toFixed(3)}</div></div>`;
+      html+=`<div class="score-box bonus"><div class="lbl">加点</div><div class="val">${bonusDisp}</div></div>`;
       html+='</div>';
-      html+=`<div class="score-final-box"><div class="lbl">SCORE（${methodLabel}）</div><div class="val">${Number(r.finalScore).toFixed(3)}</div></div>`;
+      const breakdownSub = bonusVal ? `<div style="font-size:clamp(12px,1.6vw,22px);color:#7a8a99;margin-top:8px">内訳：素点 ${Number(r.baseFinalScore).toFixed(3)} ＋ 加点 ${bonusDisp}</div>` : '';
+      html+=`<div class="score-final-box"><div class="lbl">SCORE（${methodLabel}）</div><div class="val">${Number(r.finalScore).toFixed(3)}</div>${breakdownSub}</div>`;
       html+='</div>';
       main.innerHTML=html;
       fitScoreDisplay();

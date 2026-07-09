@@ -176,13 +176,14 @@
     const confirmed = state.confirmed || [];
     const vtFinals = state.vtFinals || {};
     const settings = state.settings || {};
-    const vtMode = (apparatus) => isVT(apparatus) && (Number(settings.vtVaults) || 1) >= 2;
+    // VT跳躍数は性別・カテゴリー別の上書き設定があり得るため、レコードごとのathlete.categoryで解決する
+    const vtMode = (r) => isVT(r.apparatus) && resolveVtSettings(settings, r.apparatus.split('_')[0], r.athlete?.category).vtVaults >= 2;
     const consumedIdx = new Set();
     const rows = [];
 
     confirmed.forEach((r, idx) => {
       if (consumedIdx.has(idx)) return;
-      if (!vtMode(r.apparatus) || !r.athlete?.vtVault) {
+      if (!vtMode(r) || !r.athlete?.vtVault) {
         rows.push(r);
         return;
       }
@@ -392,6 +393,8 @@
         const v2Score = v2 ? Number(v2.finalScore).toFixed(3) : '—';
         const finalDisp = vf ? Number(vf.finalScore).toFixed(3) : '—';
         const methodLabel = vf ? (vf.method === 'avg' ? '2本平均' : `高い方:${vf.winnerVault}本目`) : '集計中';
+        const bonusVal = vf ? Number(vf.bonus || 0) : 0;
+        const bonusDisp = bonusVal ? `${bonusVal>0?'+':''}${bonusVal.toFixed(1)}` : '±0.0';
         html += `<tr>
           <td class="rank ${rankClass(rk)}">${rk ?? '—'}</td>
           <td class="score-cell-num">${r.athlete?.bib || ''}</td>
@@ -400,7 +403,12 @@
             <div style="display:flex;justify-content:center;gap:16px;align-items:center;flex-wrap:wrap">
               <div style="text-align:center"><div style="font-size:10px;color:#7a8a99">1本目</div><div class="score-cell-num">${v1Score}</div></div>
               <div style="text-align:center"><div style="font-size:10px;color:#7a8a99">2本目</div><div class="score-cell-num">${v2Score}</div></div>
-              <div style="text-align:center"><div class="vt-method-label">採用（${methodLabel}）</div><div class="score-final">${finalDisp}${(r.__vt?.vault1?.hanaMaru||r.__vt?.vault2?.hanaMaru)?'<span style="font-size:0.75em;margin-left:4px">🌸</span>':''}</div></div>
+              <div style="text-align:center"><div style="font-size:10px;color:#7a8a99">加点</div><div class="score-cell-num" style="color:${bonusVal?'#4adf8f':'#7a8a99'}">${bonusDisp}</div></div>
+              <div style="text-align:center">
+                <div class="vt-method-label">採用（${methodLabel}）</div>
+                <div class="score-final">${finalDisp}${(r.__vt?.vault1?.hanaMaru||r.__vt?.vault2?.hanaMaru)?'<span style="font-size:0.75em;margin-left:4px">🌸</span>':''}</div>
+                ${bonusVal ? `<div style="font-size:10px;color:#7a8a99">内訳: 素点 ${Number(vf.baseFinalScore).toFixed(3)} ＋ 加点 ${bonusDisp}</div>` : ''}
+              </div>
             </div>
           </td>
           <td class="time-cell" data-label="確定時刻">${fmtTime(r.confirmedAt)}</td>
