@@ -57,6 +57,122 @@ function isVT(apparatus) {
   return apparatus === 'MAG_VT' || apparatus === 'WAG_VT';
 }
 
+// 選手名簿から性別+BIBで該当選手を検索し、カテゴリー（文字列 or 複数カテゴリー配列）を返す
+function findRosterCategory(roster, gender, bib) {
+  const r = (roster || []).find(a => a.gender === gender && String(a.bib) === String(bib));
+  return r ? r.category : undefined;
+}
+
+// 性別×カテゴリー別のVT（跳馬）設定を解決する。
+// settings.vtOverrides は "性別|カテゴリー" をキーとした上書き設定（{ vtVaults, vtScoring }）のマップ。
+// category は文字列、または複数カテゴリー所属者用の配列（例: ["U15","中総"]）のどちらでも良く、
+// 上書きが登録されている最初のカテゴリーを採用する。該当する上書きがなければ、
+// 全体のデフォルト設定（settings.vtVaults / settings.vtScoring）にフォールバックする。
+function resolveVtSettings(settings, gender, category) {
+  const overrides = settings?.vtOverrides || {};
+  const categories = Array.isArray(category) ? category : (category ? [category] : []);
+  for (const cat of categories) {
+    const ov = overrides[`${gender}|${cat}`];
+    if (ov) {
+      return {
+        vtVaults: Number(ov.vtVaults) || Number(settings?.vtVaults) || 1,
+        vtScoring: ov.vtScoring || settings?.vtScoring || 'best',
+      };
+    }
+  }
+  return {
+    vtVaults: Number(settings?.vtVaults) || 1,
+    vtScoring: settings?.vtScoring || 'best',
+  };
+}
+
+// 場内表示（display.html等）向け：ある種目の「今表示すべき最新の確定得点」を選ぶ。
+// VT（跳馬）2本跳躍で採用得点（vtFinals）が既に計算済みの選手については、
+// 1本目・2本目それぞれの生の確定エントリを候補から除外し、必ず統合済みの
+// 採用得点（平均/高い方）だけを候補にする。confirmedAtのミリ秒差に依存すると
+// 生スコアの方が新しく見えて選ばれてしまうことがあるため、この関数で確実に統合結果を優先する。
+function pickLatestDisplayCandidate(confirmed, vtFinals, apparatus) {
+  const vtFinalsForApp = Object.values(vtFinals || {}).filter(v => v.apparatus === apparatus);
+  const vtFinalBibs = new Set(vtFinalsForApp.map(v => v.athlete?.bib));
+  const rawConfirmed = (confirmed || []).filter(r =>
+    r.apparatus === apparatus && !(r.athlete?.vtVault && vtFinalBibs.has(r.athlete?.bib))
+  );
+  const candidates = [...rawConfirmed, ...vtFinalsForApp];
+  if (candidates.length === 0) return null;
+  return candidates.reduce((a, b) => new Date(b.confirmedAt) > new Date(a.confirmedAt) ? b : a);
+}
+
+// 場内表示の「最低表示保持時間」を管理する小さなヘルパー。
+// 1本目確定→1本目表示→2本目確定→2本目表示→（保持時間経過）→統合得点(平均/高い方)表示、のように
+// 届いた順番のまま、それぞれ最低holdMs秒は表示され続けるようFIFOキューで管理する
+// （「最新の値で上書き」方式だと、2本目確定直後に統合結果が計算されて2本目の表示が
+// 一度も表示されないまま平均に差し替わってしまうことがあったため、キュー方式にしている）。
+// 記録本部・セクレタリーからの手動「場内表示に反映」操作（forceShow）は、キューを破棄して常に即時反映する。
+// settings.displayHoldSeconds（admin画面で設定・既定8秒）を都度参照するため、
+// 呼び出し側は最新のsettingsを毎回引数で渡すこと。
+function createDisplayHold(applyFn) {
+  let lastAppliedAt = 0;
+  let queue = [];
+  let timer = null;
+  let latestSettings = null;
+  let lastKey; // 直近に「表示済み or キュー投入済み」の内容（JSON文字列）。重複投入を防ぐ
+
+  function getHoldMs(settings) {
+    const sec = Number(settings?.displayHoldSeconds);
+    return (Number.isFinite(sec) && sec >= 0 ? sec : 8) * 1000;
+  }
+
+  function applyCandidate(candidate) {
+    lastAppliedAt = Date.now();
+    applyFn(candidate);
+  }
+
+  // キューに残りがあれば、保持時間の残り時間経過後に先頭を1件取り出して表示するタイマーを張る
+  function armTimer() {
+    if (timer || queue.length === 0) return;
+    const holdMs = getHoldMs(latestSettings);
+    const wait = Math.max(0, holdMs - (Date.now() - lastAppliedAt));
+    timer = setTimeout(() => {
+      timer = null;
+      const next = queue.shift();
+      if (next !== undefined) {
+        applyCandidate(next);
+        armTimer(); // まだキューに残っていれば続けて予約
+      }
+    }, wait);
+  }
+
+  // 自動更新を予約する。保持時間が経過済み・キューが空なら即時反映し、
+  // そうでなければキューの末尾に追加して自分の順番を待つ。
+  // STATE_UPDATE等から同じ内容で繰り返し呼ばれても、直前に受理した内容と同じなら無視する。
+  function scheduleAuto(candidate, settings) {
+    latestSettings = settings;
+    const key = JSON.stringify(candidate);
+    if (key === lastKey) return;
+    lastKey = key;
+    const holdMs = getHoldMs(settings);
+    if (queue.length === 0 && (Date.now() - lastAppliedAt) >= holdMs) {
+      applyCandidate(candidate);
+    } else {
+      queue.push(candidate);
+      armTimer();
+    }
+  }
+
+  // 手動の強制表示・接続直後のキャッチアップ表示用。キュー・保持時間を無視して即座に反映し、
+  // 以降の保持時間もこの時点から起算し直す。
+  // renderFn を渡すと、通常のapplyFnの代わりにそちらを使う（点滅演出など専用の描画をしたい場合）。
+  function forceShow(candidate, renderFn) {
+    queue = [];
+    if (timer) { clearTimeout(timer); timer = null; }
+    lastKey = JSON.stringify(candidate);
+    lastAppliedAt = Date.now();
+    (renderFn || applyFn)(candidate);
+  }
+
+  return { scheduleAuto, forceShow };
+}
+
 // ── 公開オン/オフ制御 ──
 // 会場側admin.htmlの設定（settings.publicEnabled）がfalseの場合、
 // 試験運用中などで観覧者に見せたくない状態であることを示す。
