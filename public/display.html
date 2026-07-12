@@ -349,7 +349,8 @@
     }
 
     const settings=stateData.settings||{};
-    const eCount=Number(settings.eJudgeCount)||4;
+    const eGender = myApparatus && myApparatus.startsWith('WAG') ? 'WAG' : 'MAG';
+    const eCount=Number(eGender==='WAG'?settings.eJudgeCountWAG:settings.eJudgeCountMAG)||Number(settings.eJudgeCount)||4;
     const eKeys=['E1','E2','E3','E4','E5','E6'].slice(0,eCount);
 
     let html='<div class="score-display animate-in">';

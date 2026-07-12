@@ -33,9 +33,12 @@ function apparatusShort(code) {
 // 微小なイプシロンを加えて補正してから切り捨てる。
 function floorTo3(x) { return Math.floor(x * 1000 + 1e-9) / 1000; }
 
-// E平均計算（設定対応）
-function calcEAvgWithSettings(eScores, settings) {
-  const eCount = Number(settings?.eJudgeCount) || 4;
+// E平均計算（設定対応）。
+// gender（'MAG'/'WAG'）を渡すと settings.eJudgeCountMAG / eJudgeCountWAG を参照する。
+// gender省略時、または該当性別の設定が無い場合は旧settings.eJudgeCount（全体共通の値）→4の順にフォールバックする。
+function calcEAvgWithSettings(eScores, settings, gender) {
+  const perGender = gender === 'WAG' ? settings?.eJudgeCountWAG : (gender === 'MAG' ? settings?.eJudgeCountMAG : undefined);
+  const eCount = Number(perGender) || Number(settings?.eJudgeCount) || 4;
   const eKeysAllowed = ['E1','E2','E3','E4','E5','E6'].slice(0, eCount);
   const vals = eKeysAllowed.map(k => eScores[k]).map(Number).filter(v => !isNaN(v));
   if (vals.length === 0) return { avg: null, used: [], all: [] };
