@@ -42,7 +42,7 @@ if (!RELAY_KEY) {
 let publicState = {
   confirmed: [],
   vtFinals: {},
-  settings: { eJudgeCount: 4 },
+  settings: { eJudgeCountMAG: 4, eJudgeCountWAG: 4 },
   roster: [],
 };
 
@@ -66,7 +66,7 @@ const server = http.createServer((req, res) => {
           publicState = {
             confirmed: msg.confirmed || [],
             vtFinals: msg.vtFinals || {},
-            settings: msg.settings || { eJudgeCount: 4 },
+            settings: msg.settings || { eJudgeCountMAG: 4, eJudgeCountWAG: 4 },
             roster: msg.roster || [],
           };
           // skipDisplayAuto=true の場合は観覧者側の場内表示も自動更新しない
