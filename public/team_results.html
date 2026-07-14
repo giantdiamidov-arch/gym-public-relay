@@ -24,10 +24,10 @@
   .btn-blue  { background:#2a4a8a; } .btn-blue:hover  { background:#3a5aae; }
 
   .controls { padding:12px 16px; background:#111d2a; border-bottom:1px solid #2a3a4a; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
-  .filter-btn { padding:5px 12px; background:#1a2634; border:1px solid #2a3a4a; border-radius:16px; font-size:12px; color:#7a8a99; cursor:pointer; white-space:nowrap; }
+  .filter-btn { padding:5px 12px; background:#1a2634; border:1px solid #4a5a6a; border-radius:16px; font-size:12px; color:#c5d0da; cursor:pointer; white-space:nowrap; }
   .filter-btn.active { background:#2a3a5a; border-color:#4a9eff; color:#4a9eff; }
-  .filter-btn.mag { border-color:#2a4a6a; }
-  .filter-btn.wag { border-color:#5a2a5a; }
+  .filter-btn.mag { border-color:#5a7aa5; color:#c9dcf5; }
+  .filter-btn.wag { border-color:#a55aa5; color:#f0c9f0; }
   .filter-btn.active.mag { background:#1a2a3e; border-color:#4a9eff; color:#4a9eff; }
   .filter-btn.active.wag { background:#2e1a2e; border-color:#df4adf; color:#df4adf; }
   .control-label { font-size:11px; color:#7a8a99; text-transform:uppercase; letter-spacing:0.08em; white-space:nowrap; }
@@ -428,4 +428,4 @@
               if (!ms) { html += `<td style="color:#3a4a5a">未出場</td>`; return; }
               const isAdopted = as.adopted.some(m => m.bib === bib);
               html += isAdopted
-                ? `<td class="member-use
+          

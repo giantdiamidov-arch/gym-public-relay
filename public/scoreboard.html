@@ -23,13 +23,13 @@
   .controls { padding:12px 16px; background:#111d2a; border-bottom:1px solid #2a3a4a; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
   .control-group { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
   .control-label { font-size:11px; color:#7a8a99; text-transform:uppercase; letter-spacing:0.08em; white-space:nowrap; }
-  .filter-btn { padding:5px 12px; background:#1a2634; border:1px solid #2a3a4a; border-radius:16px; font-size:12px; color:#7a8a99; cursor:pointer; white-space:nowrap; transition:all 0.15s; }
+  .filter-btn { padding:5px 12px; background:#1a2634; border:1px solid #4a5a6a; border-radius:16px; font-size:12px; color:#c5d0da; cursor:pointer; white-space:nowrap; transition:all 0.15s; }
   .filter-btn.active { background:#2a3a5a; border-color:#4a9eff; color:#4a9eff; }
-  .filter-btn.mag { border-color:#2a4a6a; }
-  .filter-btn.wag { border-color:#5a2a5a; }
+  .filter-btn.mag { border-color:#5a7aa5; color:#c9dcf5; }
+  .filter-btn.wag { border-color:#a55aa5; color:#f0c9f0; }
   .filter-btn.active.mag { background:#1a2a3e; border-color:#4a9eff; color:#4a9eff; }
   .filter-btn.active.wag { background:#2e1a2e; border-color:#df4adf; color:#df4adf; }
-  .sort-btn { padding:5px 12px; background:#1a2634; border:1px solid #2a3a4a; border-radius:16px; font-size:12px; color:#7a8a99; cursor:pointer; white-space:nowrap; }
+  .sort-btn { padding:5px 12px; background:#1a2634; border:1px solid #4a5a6a; border-radius:16px; font-size:12px; color:#c5d0da; cursor:pointer; white-space:nowrap; }
   .sort-btn.active { background:#2a261a; border-color:#dfaf4a; color:#dfaf4a; }
   .divider { width:1px; height:20px; background:#2a3a4a; margin:0 4px; }
 
@@ -389,20 +389,4 @@
         ${r.isDNF ? `<td colspan="5" data-label="結果" style="text-align:center;color:#ff6a6a;font-weight:700;font-size:16px">🚫 棄権</td>` : `
         <td class="score-d" data-label="D">${Number(r.dScore).toFixed(1)}</td>
         <td class="score-nd" data-label="ND">${Number(r.nd||0).toFixed(1)}</td>
-        <td class="score-bonus" data-label="BONUS">${Number(r.stickBonus||0).toFixed(1)}</td>
-        <td class="score-e" data-label="E">${Number(r.eAvg).toFixed(3)}</td>
-        <td class="score-final" data-label="SCORE">${Number(r.finalScore).toFixed(3)}</td>
-        `}
-        <td class="time-cell" data-label="時刻">${time}</td>
-      </tr>`;
-    });
-
-    html += '</tbody></table>';
-    main.innerHTML = html;
-    lastCount = confirmed.length;
-  }
-
-  connectWS();
-</script>
-</body>
-</html>
+      
