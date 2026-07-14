@@ -26,6 +26,10 @@
   .controls { padding:12px 16px; background:#111d2a; border-bottom:1px solid #2a3a4a; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
   .filter-btn { padding:5px 12px; background:#1a2634; border:1px solid #2a3a4a; border-radius:16px; font-size:12px; color:#7a8a99; cursor:pointer; white-space:nowrap; }
   .filter-btn.active { background:#2a3a5a; border-color:#4a9eff; color:#4a9eff; }
+  .filter-btn.mag { border-color:#2a4a6a; }
+  .filter-btn.wag { border-color:#5a2a5a; }
+  .filter-btn.active.mag { background:#1a2a3e; border-color:#4a9eff; color:#4a9eff; }
+  .filter-btn.active.wag { background:#2e1a2e; border-color:#df4adf; color:#df4adf; }
   .control-label { font-size:11px; color:#7a8a99; text-transform:uppercase; letter-spacing:0.08em; white-space:nowrap; }
 
   .main { padding:16px; }
@@ -104,8 +108,8 @@
 <div class="controls" id="controls">
   <span class="control-label">性別</span>
   <div class="filter-btn active" id="fb-ALL" onclick="setFilter('gender','ALL')">すべて</div>
-  <div class="filter-btn" id="fb-MAG" onclick="setFilter('gender','MAG')">MAG</div>
-  <div class="filter-btn" id="fb-WAG" onclick="setFilter('gender','WAG')">WAG</div>
+  <div class="filter-btn mag" id="fb-MAG" onclick="setFilter('gender','MAG')">MAG</div>
+  <div class="filter-btn wag" id="fb-WAG" onclick="setFilter('gender','WAG')">WAG</div>
   <span class="control-label" style="margin-left:14px">カテゴリー</span>
   <div id="category-filters" style="display:flex;gap:8px;flex-wrap:wrap"></div>
   <div style="flex:1"></div>
@@ -175,7 +179,8 @@
   function renderControls() {
     // 性別ボタンの active 状態
     ['ALL','MAG','WAG'].forEach(id => {
-      document.getElementById(`fb-${id}`).className = 'filter-btn' + (filterGender === id ? ' active' : '');
+      const gc = id === 'MAG' ? ' mag' : id === 'WAG' ? ' wag' : '';
+      document.getElementById(`fb-${id}`).className = 'filter-btn' + gc + (filterGender === id ? ' active' : '');
     });
     // カテゴリーボタンを動的生成
     const cats = collectCategories(appState || { roster: [] }, filterGender);
@@ -423,18 +428,4 @@
               if (!ms) { html += `<td style="color:#3a4a5a">未出場</td>`; return; }
               const isAdopted = as.adopted.some(m => m.bib === bib);
               html += isAdopted
-                ? `<td class="member-used">${fmtScore(ms.score)}<span class="adopted-badge">採用</span></td>`
-                : `<td class="member-dropped">${fmtScore(ms.score)}</td>`;
-            });
-            html += `<td></td></tr>`;
-          });
-        }
-      });
-
-      html += `</tbody></table></div>`;
-      return html;
-    }).join('');
-  }
-</script>
-</body>
-</html>
+                ? `<td class="member-use

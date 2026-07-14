@@ -31,6 +31,10 @@
   .control-label { font-size:11px; color:#7a8a99; text-transform:uppercase; letter-spacing:0.08em; white-space:nowrap; }
   .filter-btn { padding:5px 12px; background:#1a2634; border:1px solid #2a3a4a; border-radius:16px; font-size:12px; color:#7a8a99; cursor:pointer; white-space:nowrap; transition:all 0.15s; }
   .filter-btn.active { background:#2a3a5a; border-color:#4a9eff; color:#4a9eff; }
+  .filter-btn.mag { border-color:#2a4a6a; }
+  .filter-btn.wag { border-color:#5a2a5a; }
+  .filter-btn.active.mag { background:#1a2a3e; border-color:#4a9eff; color:#4a9eff; }
+  .filter-btn.active.wag { background:#2e1a2e; border-color:#df4adf; color:#df4adf; }
   .mode-btn { padding:5px 14px; background:#1a2634; border:1px solid #2a3a4a; border-radius:16px; font-size:12px; color:#7a8a99; cursor:pointer; white-space:nowrap; }
   .mode-btn.active { background:#2a261a; border-color:#dfaf4a; color:#dfaf4a; font-weight:700; }
   .divider { width:1px; height:20px; background:#2a3a4a; margin:0 4px; }
@@ -279,7 +283,8 @@
 
     html += `<div class="control-group"><span class="control-label">性別</span>`;
     ['ALL', 'MAG', 'WAG'].forEach(g => {
-      html += `<div class="filter-btn ${filterGender === g ? 'active' : ''}" onclick="setFilter('gender','${g}')">${g === 'ALL' ? '全て' : GENDER_LABEL[g]}</div>`;
+      const gc = g === 'MAG' ? 'mag' : g === 'WAG' ? 'wag' : '';
+      html += `<div class="filter-btn ${gc} ${filterGender === g ? 'active' : ''}" onclick="setFilter('gender','${g}')">${g === 'ALL' ? '全て' : GENDER_LABEL[g]}</div>`;
     });
     html += `</div><div class="divider"></div>`;
 
@@ -294,7 +299,9 @@
       html += `<div class="divider"></div><div class="control-group"><span class="control-label">種目</span>`;
       html += `<div class="filter-btn ${filterApparatus === 'ALL' ? 'active' : ''}" onclick="setFilter('app','ALL')">全て</div>`;
       opts.apparatusList.forEach(a => {
-        html += `<div class="filter-btn ${filterApparatus === a ? 'active' : ''}" onclick="setFilter('app','${a}')">${apparatusShort(a)}</div>`;
+        const g = APPARATUS[a]?.gender;
+        const gc = g === 'MAG' ? 'mag' : g === 'WAG' ? 'wag' : '';
+        html += `<div class="filter-btn ${gc} ${filterApparatus === a ? 'active' : ''}" onclick="setFilter('app','${a}')">${apparatusShort(a)}</div>`;
       });
       html += `</div>`;
     }
@@ -473,17 +480,4 @@
     return html;
   }
 
-  function render() {
-    const main = document.getElementById('main');
-    const groups = buildGroups();
-    if (groups.length === 0) {
-      main.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div>該当する確定得点がありません</div>`;
-      return;
-    }
-    main.innerHTML = groups.map(g => g.type === 'apparatus' ? renderApparatusSheet(g) : renderTotalSheet(g)).join('');
-  }
-
-  connectWS();
-</script>
-</body>
-</html>
+  function r
