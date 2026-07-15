@@ -73,15 +73,14 @@
 
   .total-row { cursor:pointer; }
   .expand-arrow { display:inline-block; width:14px; color:#7a8a99; font-size:11px; }
-  .total-detail-row td { background:#141f2c; padding:10px 16px 14px 34px; }
-  .total-detail-wrap { display:flex; gap:20px; flex-wrap:wrap; }
-  .total-detail-block { min-width:150px; }
+  .total-detail-row td { background:#141f2c; padding:8px 4px; vertical-align:top; }
+  .total-detail-cell { text-align:center; min-width:78px; }
   .total-detail-label { font-size:10px; color:#dfaf4a; margin-bottom:4px; }
+  .total-detail-vals { font-size:11px; line-height:1.7; }
   .total-detail-sub { font-size:10px; color:#7a8a99; margin-bottom:2px; }
-  .total-detail-line { font-size:11px; color:#7a8a99; }
+  .total-detail-line { font-size:10px; color:#7a8a99; line-height:1.6; }
   .total-detail-empty { font-size:11px; color:#3a4a5a; }
-  .total-vault-row { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:4px; }
-  .total-vault-box { background:#0f1923; border-radius:8px; padding:6px 10px; }
+  .total-vault-box { background:#0f1923; border-radius:6px; padding:5px 6px; margin-bottom:5px; }
 
   @media print {
     body { background:#fff; color:#000; }
@@ -134,9 +133,11 @@
       text-transform:uppercase; letter-spacing:0.05em; flex-shrink:0;
     }
 
-    /* 内訳展開行はカード見出し用のスタイルを適用せず、自由レイアウトのまま表示する */
+    /* 内訳展開行はカード見出し用のスタイルを適用せず、種目ごとに縦積みのブロックとして表示する（列位置合わせは会場内版のみ） */
     tr.total-detail-row { padding:0; background:transparent; border:none; }
     .total-detail-row td { padding:10px 10px 12px 20px; }
+    .total-detail-row td:empty { display:none; }
+    .total-detail-cell { text-align:left; min-width:0; margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid #1a2a3a; }
   }
 </style>
 </head>
@@ -435,10 +436,10 @@
     const a = APPARATUS[code];
     const label = `${a.icon} ${a.label}`;
     if (!r) {
-      return `<div class="total-detail-block"><div class="total-detail-label">${label}</div><div class="total-detail-empty">未実施</div></div>`;
+      return `<div class="total-detail-label">${label}</div><div class="total-detail-empty">未実施</div>`;
     }
     if (r.isDNF) {
-      return `<div class="total-detail-block"><div class="total-detail-label">${label}</div><div class="total-detail-empty" style="color:#ff8888">🚫 棄権</div></div>`;
+      return `<div class="total-detail-label">${label}</div><div class="total-detail-empty" style="color:#ff8888">🚫 棄権</div>`;
     }
     if (r.__vt) {
       const v1 = r.__vt.vault1, v2 = r.__vt.vault2, vf = r.__vt.final;
@@ -448,21 +449,29 @@
       const vaultHtml = (name, v) => v
         ? `<div class="total-vault-box">
             <div class="total-detail-sub">${name}</div>
-            <div class="total-detail-line"><span class="score-d">D ${Number(v.dScore).toFixed(1)}</span> <span class="score-nd">ND ${Number(v.nd || 0).toFixed(1)}</span> <span class="score-bonus">B ${Number(v.stickBonus || 0).toFixed(1)}</span> <span class="score-e">E ${Number(v.eAvg).toFixed(3)}</span></div>
-            <div class="score-final" style="font-size:13px">${Number(v.finalScore).toFixed(3)}</div>
+            <div class="total-detail-vals">
+              <div><span class="score-d">D ${Number(v.dScore).toFixed(1)}</span></div>
+              <div><span class="score-e">E ${Number(v.eAvg).toFixed(3)}</span></div>
+              <div><span class="score-nd">ND ${Number(v.nd || 0).toFixed(1)}</span></div>
+              <div><span class="score-bonus">B ${Number(v.stickBonus || 0).toFixed(1)}</span></div>
+            </div>
+            <div class="score-final" style="font-size:12px">${Number(v.finalScore).toFixed(3)}</div>
           </div>`
         : `<div class="total-vault-box"><div class="total-detail-sub">${name}</div><div class="total-detail-empty">—</div></div>`;
-      return `<div class="total-detail-block">
-        <div class="total-detail-label">${label}</div>
-        <div class="total-vault-row">${vaultHtml('1本目', v1)}${vaultHtml('2本目', v2)}</div>
-        <div class="total-detail-line"><span class="score-bonus">統合加点 ${bonusDisp}</span> ・ 採用: ${methodLabel} → <span class="score-final" style="font-size:13px">${vf ? Number(vf.finalScore).toFixed(3) : '集計中'}</span></div>
-      </div>`;
+      return `<div class="total-detail-label">${label}</div>
+        ${vaultHtml('1本目', v1)}${vaultHtml('2本目', v2)}
+        <div class="total-detail-line"><span class="score-bonus">統合加点 ${bonusDisp}</span></div>
+        <div class="total-detail-line">採用: ${methodLabel}</div>
+        <div class="score-final" style="font-size:13px">${vf ? Number(vf.finalScore).toFixed(3) : '集計中'}</div>`;
     }
-    return `<div class="total-detail-block">
-      <div class="total-detail-label">${label}</div>
-      <div class="total-detail-line"><span class="score-d">D ${Number(r.dScore).toFixed(1)}</span> <span class="score-nd">ND ${Number(r.nd || 0).toFixed(1)}</span> <span class="score-bonus">B ${Number(r.stickBonus || 0).toFixed(1)}</span> <span class="score-e">E ${Number(r.eAvg).toFixed(3)}</span></div>
-      <div class="score-final" style="font-size:13px">${Number(r.finalScore).toFixed(3)}</div>
-    </div>`;
+    return `<div class="total-detail-label">${label}</div>
+      <div class="total-detail-vals">
+        <div><span class="score-d">D ${Number(r.dScore).toFixed(1)}</span></div>
+        <div><span class="score-e">E ${Number(r.eAvg).toFixed(3)}</span></div>
+        <div><span class="score-nd">ND ${Number(r.nd || 0).toFixed(1)}</span></div>
+        <div><span class="score-bonus">B ${Number(r.stickBonus || 0).toFixed(1)}</span></div>
+      </div>
+      <div class="score-final" style="font-size:13px">${Number(r.finalScore).toFixed(3)}</div>`;
   }
 
   function renderApparatusSheet(g) {
@@ -556,10 +565,11 @@
         <td class="complete-tag" data-label="完了">${r.completed}/${g.totalEvents}</td>
       </tr>`;
       if (expanded) {
-        const totalCols = 3 + g.apparatusOrder.length + 2;
-        html += `<tr class="total-detail-row"><td colspan="${totalCols}">
-          <div class="total-detail-wrap">${g.apparatusOrder.map(code => totalDetailBlockHtml(code, r.detail[code])).join('')}</div>
-        </td></tr>`;
+        html += `<tr class="total-detail-row">
+          <td></td><td></td><td></td>
+          ${g.apparatusOrder.map(code => `<td class="total-detail-cell">${totalDetailBlockHtml(code, r.detail[code])}</td>`).join('')}
+          <td></td><td></td>
+        </tr>`;
       }
     });
 
