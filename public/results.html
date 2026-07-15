@@ -70,6 +70,19 @@
   .empty-icon { font-size:48px; margin-bottom:12px; }
 
   .vt-method-label { font-size:10px; color:#dfaf4a; }
+
+  .total-row { cursor:pointer; }
+  .expand-arrow { display:inline-block; width:14px; color:#7a8a99; font-size:11px; }
+  .total-detail-row td { background:#141f2c; padding:10px 16px 14px 34px; }
+  .total-detail-wrap { display:flex; gap:20px; flex-wrap:wrap; }
+  .total-detail-block { min-width:150px; }
+  .total-detail-label { font-size:10px; color:#dfaf4a; margin-bottom:4px; }
+  .total-detail-sub { font-size:10px; color:#7a8a99; margin-bottom:2px; }
+  .total-detail-line { font-size:11px; color:#7a8a99; }
+  .total-detail-empty { font-size:11px; color:#3a4a5a; }
+  .total-vault-row { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:4px; }
+  .total-vault-box { background:#0f1923; border-radius:8px; padding:6px 10px; }
+
   @media print {
     body { background:#fff; color:#000; }
     .nav, .controls, .header-right { display:none !important; }
@@ -86,6 +99,11 @@
     .athlete-org, .time-cell, .complete-tag { color:#444; }
     .rank.r1, .rank.r2, .rank.r3 { color:#000; }
     .vt-method-label { color:#444; }
+    .total-detail-row td { background:#f7f7f7; }
+    .total-detail-label { color:#000; }
+    .total-detail-sub, .total-detail-line, .total-detail-empty { color:#444; }
+    .total-vault-box { background:#fff; border:1px solid #ccc; }
+    .expand-arrow { display:none; }
   }
 
   /* ── スマホ表示: 1人分を横スクロール不要のカードに変える ── */
@@ -97,24 +115,28 @@
     tbody tr { display:block; background:#141f2c; border:1px solid #2a3a4a; border-radius:14px; padding:12px 14px 6px; }
     td { display:block; padding:0; }
 
-    /* 1〜3列目（順位・BIB・選手）はカードの見出し部分として並べる */
-    tr td:nth-child(1) {
+    /* 1〜3列目（順位・BIB・選手）はカードの見出し部分として並べる（内訳展開行は対象外） */
+    tr:not(.total-detail-row) td:nth-child(1) {
       display:inline-flex; align-items:center; justify-content:center;
       width:30px; height:30px; border-radius:50%; background:#0f1923;
       font-size:15px; margin-right:10px; vertical-align:middle;
     }
-    tr td:nth-child(2) { display:inline-block; font-size:13px; vertical-align:middle; margin-right:10px; }
-    tr td:nth-child(3) { display:inline-block; vertical-align:middle; }
+    tr:not(.total-detail-row) td:nth-child(2) { display:inline-block; font-size:13px; vertical-align:middle; margin-right:10px; }
+    tr:not(.total-detail-row) td:nth-child(3) { display:inline-block; vertical-align:middle; }
 
-    /* 4列目以降（D・ND・BONUS・E平均・SCORE、種目別の合計や完了など）はラベル付き一覧に */
-    tr td:nth-child(n+4) {
+    /* 4列目以降（D・ND・BONUS・E平均・SCORE、種目別の合計や完了など）はラベル付き一覧に（内訳展開行は対象外） */
+    tr:not(.total-detail-row) td:nth-child(n+4) {
       display:flex; justify-content:space-between; align-items:center; gap:10px;
       padding:7px 0; border-top:1px solid #1a2a3a; font-size:13px;
     }
-    tr td:nth-child(n+4)::before {
+    tr:not(.total-detail-row) td:nth-child(n+4)::before {
       content:attr(data-label); font-size:11px; color:#7a8a99;
       text-transform:uppercase; letter-spacing:0.05em; flex-shrink:0;
     }
+
+    /* 内訳展開行はカード見出し用のスタイルを適用せず、自由レイアウトのまま表示する */
+    tr.total-detail-row { padding:0; background:transparent; border:none; }
+    .total-detail-row td { padding:10px 10px 12px 20px; }
   }
 </style>
 </head>
@@ -145,6 +167,7 @@
   let filterGender = 'ALL';          // 'ALL' | 'MAG' | 'WAG'
   let filterCategory = 'ALL';
   let filterApparatus = 'ALL';
+  const expandedTotalIds = new Set(); // 個人総合：展開中の選手行（gender|category|bib）
 
   // ── WebSocket接続（記録システムサーバーに接続するだけ。書き込みは一切行わない） ──
   function connectWS() {
@@ -304,6 +327,12 @@
         html += `<div class="filter-btn ${gc} ${filterApparatus === a ? 'active' : ''}" onclick="setFilter('app','${a}')">${apparatusShort(a)}</div>`;
       });
       html += `</div>`;
+    } else {
+      const totalIds = buildGroups().filter(gr => gr.type === 'total').flatMap(gr => gr.rows.map(r => r.id));
+      const allExpanded = totalIds.length > 0 && totalIds.every(id => expandedTotalIds.has(id));
+      html += `<div class="divider"></div><div class="control-group"><span class="control-label">内訳</span>`;
+      html += `<div class="filter-btn ${allExpanded ? 'active' : ''}" onclick="toggleAllTotalRows()">${allExpanded ? '▴ すべて折りたたむ' : '▾ すべて展開'}</div>`;
+      html += `</div>`;
     }
 
     document.getElementById('controls').innerHTML = html;
@@ -363,11 +392,12 @@
           apparatusOrder.forEach(code => {
             rows.filter(r => r.apparatus === code && athleteInCat(r, cat)).forEach(r => {
               const bib = r.athlete?.bib || '';
-              if (!athletes[bib]) athletes[bib] = { athlete: r.athlete, total: 0, completed: 0, breakdown: {}, hanaMaruByCode: {}, scoresArr: [], isDNF: false };
+              if (!athletes[bib]) athletes[bib] = { id: `${g}|${cat}|${bib}`, athlete: r.athlete, total: 0, completed: 0, breakdown: {}, detail: {}, hanaMaruByCode: {}, scoresArr: [], isDNF: false };
               const scoreVal = Number(r.finalScore) || 0;
               athletes[bib].total = round3(athletes[bib].total + scoreVal);
               athletes[bib].completed += 1;
               athletes[bib].breakdown[code] = r.isDNF ? null : r.finalScore;
+              athletes[bib].detail[code] = r;
               athletes[bib].hanaMaruByCode[code] = !!(r.__vt ? (r.__vt.vault1?.hanaMaru || r.__vt.vault2?.hanaMaru) : r.hanaMaru);
               athletes[bib].scoresArr.push(scoreVal);
             });
@@ -384,6 +414,56 @@
 
   function rankClass(rank) { return rank === 1 ? 'r1' : rank === 2 ? 'r2' : rank === 3 ? 'r3' : ''; }
   function fmtTime(iso) { return iso ? new Date(iso).toLocaleString('ja-JP') : ''; }
+
+  // ── 個人総合：選手行の展開・折りたたみ（クリックで種目ごとの内訳D/ND/BONUS/E平均を表示） ──
+  function toggleTotalRow(id) {
+    if (expandedTotalIds.has(id)) expandedTotalIds.delete(id); else expandedTotalIds.add(id);
+    renderControls();
+    render();
+  }
+  function toggleAllTotalRows() {
+    const ids = buildGroups().filter(g => g.type === 'total').flatMap(g => g.rows.map(r => r.id));
+    const allExpanded = ids.length > 0 && ids.every(id => expandedTotalIds.has(id));
+    if (allExpanded) ids.forEach(id => expandedTotalIds.delete(id));
+    else ids.forEach(id => expandedTotalIds.add(id));
+    renderControls();
+    render();
+  }
+
+  // ── 個人総合の展開行：1種目分の内訳ブロック（通常種目はD/ND/BONUS/E平均、跳馬2本は1本目・2本目それぞれの内訳＋統合結果） ──
+  function totalDetailBlockHtml(code, r) {
+    const a = APPARATUS[code];
+    const label = `${a.icon} ${a.label}`;
+    if (!r) {
+      return `<div class="total-detail-block"><div class="total-detail-label">${label}</div><div class="total-detail-empty">未実施</div></div>`;
+    }
+    if (r.isDNF) {
+      return `<div class="total-detail-block"><div class="total-detail-label">${label}</div><div class="total-detail-empty" style="color:#ff8888">🚫 棄権</div></div>`;
+    }
+    if (r.__vt) {
+      const v1 = r.__vt.vault1, v2 = r.__vt.vault2, vf = r.__vt.final;
+      const bonusVal = vf ? Number(vf.bonus || 0) : 0;
+      const bonusDisp = bonusVal ? `${bonusVal > 0 ? '+' : ''}${bonusVal.toFixed(1)}` : '±0.0';
+      const methodLabel = vf ? (vf.method === 'avg' ? '2本平均' : `高い方:${vf.winnerVault}本目`) : '集計中';
+      const vaultHtml = (name, v) => v
+        ? `<div class="total-vault-box">
+            <div class="total-detail-sub">${name}</div>
+            <div class="total-detail-line"><span class="score-d">D ${Number(v.dScore).toFixed(1)}</span> <span class="score-nd">ND ${Number(v.nd || 0).toFixed(1)}</span> <span class="score-bonus">B ${Number(v.stickBonus || 0).toFixed(1)}</span> <span class="score-e">E ${Number(v.eAvg).toFixed(3)}</span></div>
+            <div class="score-final" style="font-size:13px">${Number(v.finalScore).toFixed(3)}</div>
+          </div>`
+        : `<div class="total-vault-box"><div class="total-detail-sub">${name}</div><div class="total-detail-empty">—</div></div>`;
+      return `<div class="total-detail-block">
+        <div class="total-detail-label">${label}</div>
+        <div class="total-vault-row">${vaultHtml('1本目', v1)}${vaultHtml('2本目', v2)}</div>
+        <div class="total-detail-line"><span class="score-bonus">統合加点 ${bonusDisp}</span> ・ 採用: ${methodLabel} → <span class="score-final" style="font-size:13px">${vf ? Number(vf.finalScore).toFixed(3) : '集計中'}</span></div>
+      </div>`;
+    }
+    return `<div class="total-detail-block">
+      <div class="total-detail-label">${label}</div>
+      <div class="total-detail-line"><span class="score-d">D ${Number(r.dScore).toFixed(1)}</span> <span class="score-nd">ND ${Number(r.nd || 0).toFixed(1)}</span> <span class="score-bonus">B ${Number(r.stickBonus || 0).toFixed(1)}</span> <span class="score-e">E ${Number(r.eAvg).toFixed(3)}</span></div>
+      <div class="score-final" style="font-size:13px">${Number(r.finalScore).toFixed(3)}</div>
+    </div>`;
+  }
 
   function renderApparatusSheet(g) {
     const a = APPARATUS[g.apparatus];
@@ -461,10 +541,11 @@
     html += `<th>合計</th><th>完了</th></tr></thead><tbody>`;
 
     g.rows.forEach(r => {
-      html += `<tr>
+      const expanded = expandedTotalIds.has(r.id);
+      html += `<tr class="total-row" onclick="toggleTotalRow('${r.id}')">
         <td class="rank ${rankClass(r.__rank)}">${r.__rank ?? '—'}</td>
         <td class="score-cell-num">${r.athlete?.bib || ''}</td>
-        <td><div class="athlete-name">${r.athlete?.name || ''}</div><div class="athlete-org">${r.athlete?.club || ''}</div></td>`;
+        <td><div class="athlete-name"><span class="expand-arrow">${expanded ? '▾' : '▸'}</span>${r.athlete?.name || ''}</div><div class="athlete-org">${r.athlete?.club || ''}</div></td>`;
       g.apparatusOrder.forEach(code => {
         const v = r.breakdown[code];
         const hm = r.hanaMaruByCode?.[code];
@@ -474,7 +555,29 @@
       html += `<td class="score-final" data-label="合計">${Number(r.total).toFixed(3)}</td>
         <td class="complete-tag" data-label="完了">${r.completed}/${g.totalEvents}</td>
       </tr>`;
+      if (expanded) {
+        const totalCols = 3 + g.apparatusOrder.length + 2;
+        html += `<tr class="total-detail-row"><td colspan="${totalCols}">
+          <div class="total-detail-wrap">${g.apparatusOrder.map(code => totalDetailBlockHtml(code, r.detail[code])).join('')}</div>
+        </td></tr>`;
+      }
     });
 
     html += '</tbody></table></div>';
-    
+    return html;
+  }
+
+  function render() {
+    const main = document.getElementById('main');
+    const groups = buildGroups();
+    if (groups.length === 0) {
+      main.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div>該当する確定得点がありません</div>`;
+      return;
+    }
+    main.innerHTML = groups.map(g => g.type === 'apparatus' ? renderApparatusSheet(g) : renderTotalSheet(g)).join('');
+  }
+
+  connectWS();
+</script>
+</body>
+</html>
