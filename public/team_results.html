@@ -428,4 +428,18 @@
               if (!ms) { html += `<td style="color:#3a4a5a">未出場</td>`; return; }
               const isAdopted = as.adopted.some(m => m.bib === bib);
               html += isAdopted
-          
+                ? `<td class="member-used">${fmtScore(ms.score)}<span class="adopted-badge">採用</span></td>`
+                : `<td class="member-dropped">${fmtScore(ms.score)}</td>`;
+            });
+            html += `<td></td></tr>`;
+          });
+        }
+      });
+
+      html += `</tbody></table></div>`;
+      return html;
+    }).join('');
+  }
+</script>
+</body>
+</html>

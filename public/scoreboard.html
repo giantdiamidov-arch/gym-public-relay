@@ -389,4 +389,20 @@
         ${r.isDNF ? `<td colspan="5" data-label="結果" style="text-align:center;color:#ff6a6a;font-weight:700;font-size:16px">🚫 棄権</td>` : `
         <td class="score-d" data-label="D">${Number(r.dScore).toFixed(1)}</td>
         <td class="score-nd" data-label="ND">${Number(r.nd||0).toFixed(1)}</td>
-      
+        <td class="score-bonus" data-label="BONUS">${Number(r.stickBonus||0).toFixed(1)}</td>
+        <td class="score-e" data-label="E">${Number(r.eAvg).toFixed(3)}</td>
+        <td class="score-final" data-label="SCORE">${Number(r.finalScore).toFixed(3)}</td>
+        `}
+        <td class="time-cell" data-label="時刻">${time}</td>
+      </tr>`;
+    });
+
+    html += '</tbody></table>';
+    main.innerHTML = html;
+    lastCount = confirmed.length;
+  }
+
+  connectWS();
+</script>
+</body>
+</html>
