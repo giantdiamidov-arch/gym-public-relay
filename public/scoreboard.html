@@ -283,9 +283,10 @@
       const gender = APPARATUS[r.apparatus]?.gender;
       if (filterGender!=='ALL' && gender!==filterGender) return false;
       if (filterCat!=='ALL') {
-        const bib = r.athlete?.bib;
-        const rosterEntry = (window._roster||[]).find(e => e.bib === bib);
-        const rawCat = rosterEntry ? rosterEntry.category : r.athlete?.category;
+        // ※bibだけでrosterを再検索しない：同じBIBが別カテゴリーで使い回される大会があり、
+        //   その場合Array.findが別カテゴリーの選手を返して誤フィルタになるため、
+        //   確定レコードに保存済みの athlete.category を直接使う
+        const rawCat = r.athlete?.category;
         const cats = Array.isArray(rawCat) ? rawCat : (rawCat ? [rawCat] : []);
         if (!cats.includes(filterCat)) return false;
       }
@@ -349,7 +350,7 @@
             <div class="athlete-name">${r.athlete?.name||''}${isNew?'<span class="new-badge">NEW</span>':''}${(r.__vt?.vault1?.hanaMaru||r.__vt?.vault2?.hanaMaru)?'<span style="font-size:inherit;margin-left:6px">🌸</span>':''}</div>
             <div class="athlete-org">${r.athlete?.club||''}</div>
           </td>
-          <td><span class="cat-tag">${(() => { const e=(window._roster||[]).find(x=>x.bib===r.athlete?.bib); return e ? (Array.isArray(e.category)?e.category.join('|'):(e.category||'')) : (r.athlete?.category||''); })()}</span></td>
+          <td><span class="cat-tag">${(() => { const c=r.athlete?.category; return Array.isArray(c)?c.join('|'):(c||''); })()}</span></td>
           <td><span class="app-badge">${apparatusShort(r.apparatus)}</span></td>
           <td colspan="5" data-label="結果" style="text-align:center">
             <div style="display:flex;justify-content:center;gap:18px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
@@ -384,7 +385,7 @@
           <div class="athlete-name">${r.athlete?.name||''}${isNew?'<span class="new-badge">NEW</span>':''}${r.hanaMaru?'<span style="font-size:inherit;margin-left:6px">🌸</span>':''}</div>
           <div class="athlete-org">${r.athlete?.club||''}</div>
         </td>
-        <td><span class="cat-tag">${(() => { const e=(window._roster||[]).find(x=>x.bib===r.athlete?.bib); return e ? (Array.isArray(e.category)?e.category.join('|'):(e.category||'')) : (r.athlete?.category||''); })()}</span></td>
+        <td><span class="cat-tag">${(() => { const c=r.athlete?.category; return Array.isArray(c)?c.join('|'):(c||''); })()}</span></td>
         <td><span class="app-badge">${apparatusShort(r.apparatus)}</span></td>
         ${r.isDNF ? `<td colspan="5" data-label="結果" style="text-align:center;color:#ff6a6a;font-weight:700;font-size:16px">🚫 棄権</td>` : `
         <td class="score-d" data-label="D">${Number(r.dScore).toFixed(1)}</td>
