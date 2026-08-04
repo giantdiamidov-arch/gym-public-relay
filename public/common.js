@@ -1,21 +1,21 @@
 // 種目定義（全画面共通）
+// 県少年少女交流会用：男女共通3種目（マット・とび箱・鉄棒）。
+// とび箱（MAG_TOBI/WAG_TOBI）は内部的に旧VT（跳馬）ロジック（2本跳躍・高い方/平均採用）を流用しているため、
+// 一部の内部変数名・関数名（isVT/vtFinals/resolveVtSettings等）は歴史的経緯でVT前提の名称のままだが、
+// 動作上はとび箱の2本跳躍ルールとして機能する。
 const APPARATUS = {
   // MAG
-  MAG_FX: { code:'MAG_FX', label:'FX', full:'Floor Exercise', gender:'MAG', icon:'🟦' },
-  MAG_PH: { code:'MAG_PH', label:'PH', full:'Pommel Horse',   gender:'MAG', icon:'🐴' },
-  MAG_SR: { code:'MAG_SR', label:'SR', full:'Still Rings',    gender:'MAG', icon:'⭕' },
-  MAG_VT: { code:'MAG_VT', label:'VT', full:'Vault',          gender:'MAG', icon:'🏃' },
-  MAG_PB: { code:'MAG_PB', label:'PB', full:'Parallel Bars',  gender:'MAG', icon:'⚡' },
-  MAG_HB: { code:'MAG_HB', label:'HB', full:'High Bar',       gender:'MAG', icon:'🔝' },
+  MAG_MAT:   { code:'MAG_MAT',   label:'マット', full:'マット運動', gender:'MAG', icon:'🤸' },
+  MAG_TOBI:  { code:'MAG_TOBI',  label:'とび箱', full:'跳び箱運動', gender:'MAG', icon:'🐴' },
+  MAG_TETSU: { code:'MAG_TETSU', label:'鉄棒',   full:'鉄棒運動',   gender:'MAG', icon:'🔝' },
   // WAG
-  WAG_VT: { code:'WAG_VT', label:'VT', full:'Vault',          gender:'WAG', icon:'🏃' },
-  WAG_UB: { code:'WAG_UB', label:'UB', full:'Uneven Bars',    gender:'WAG', icon:'〰️' },
-  WAG_BB: { code:'WAG_BB', label:'BB', full:'Balance Beam',   gender:'WAG', icon:'🤸' },
-  WAG_FX: { code:'WAG_FX', label:'FX', full:'Floor Exercise', gender:'WAG', icon:'🟦' },
+  WAG_MAT:   { code:'WAG_MAT',   label:'マット', full:'マット運動', gender:'WAG', icon:'🤸' },
+  WAG_TOBI:  { code:'WAG_TOBI',  label:'とび箱', full:'跳び箱運動', gender:'WAG', icon:'🐴' },
+  WAG_TETSU: { code:'WAG_TETSU', label:'鉄棒',   full:'鉄棒運動',   gender:'WAG', icon:'🔝' },
 };
 
-const MAG_ORDER = ['MAG_FX','MAG_PH','MAG_SR','MAG_VT','MAG_PB','MAG_HB'];
-const WAG_ORDER = ['WAG_VT','WAG_UB','WAG_BB','WAG_FX'];
+const MAG_ORDER = ['MAG_MAT','MAG_TOBI','MAG_TETSU'];
+const WAG_ORDER = ['WAG_MAT','WAG_TOBI','WAG_TETSU'];
 const ALL_APPARATUS_ORDER = [...MAG_ORDER, ...WAG_ORDER];
 
 function apparatusName(code) {
@@ -55,9 +55,10 @@ function calcEAvgWithSettings(eScores, settings, gender) {
   return { avg: floorTo3(used.reduce((a,v)=>a+v,0)/used.length), used, all: vals };
 }
 
-// VT種目かどうか
+// とび箱種目かどうか（旧VT＝跳馬の2本跳躍・高い方/平均採用ロジックを、とび箱に付け替えて流用している。
+// 関数名・内部の変数名はVT前提のままだが、対象種目はMAG_TOBI/WAG_TOBI＝とび箱）
 function isVT(apparatus) {
-  return apparatus === 'MAG_VT' || apparatus === 'WAG_VT';
+  return apparatus === 'MAG_TOBI' || apparatus === 'WAG_TOBI';
 }
 
 // category（文字列 or 複数カテゴリー配列）を、キー生成用に正規化する。
@@ -67,7 +68,7 @@ function categoryKey(category) {
   return category ? String(category) : '';
 }
 
-// VT（跳馬）採用得点（vtFinals）のキーを生成する。
+// とび箱（旧VT＝跳馬ロジック流用）採用得点（vtFinals）のキーを生成する。
 // 同じ性別内でBIB番号がカテゴリーをまたいで重複するケース（例: U12とU15で同じBIBを
 // 使い回す大会）があるため、apparatus + bib だけでなく category も含めて選手を一意に
 // 識別する。category は各呼び出し側が保持している athlete.category をそのまま渡すこと。
@@ -81,7 +82,7 @@ function findRosterCategory(roster, gender, bib) {
   return r ? r.category : undefined;
 }
 
-// 性別×カテゴリー別のVT（跳馬）設定を解決する。
+// 性別×カテゴリー別のとび箱（旧VT＝跳馬ロジック流用）設定を解決する。
 // settings.vtOverrides は "性別|カテゴリー" をキーとした上書き設定（{ vtVaults, vtScoring }）のマップ。
 // category は文字列、または複数カテゴリー所属者用の配列（例: ["U15","中総"]）のどちらでも良く、
 // 上書きが登録されている最初のカテゴリーを採用する。該当する上書きがなければ、
@@ -105,7 +106,7 @@ function resolveVtSettings(settings, gender, category) {
 }
 
 // 場内表示（display.html等）向け：ある種目の「今表示すべき最新の確定得点」を選ぶ。
-// VT（跳馬）2本跳躍で採用得点（vtFinals）が既に計算済みの選手については、
+// とび箱（旧VT＝跳馬ロジック流用）2本跳躍で採用得点（vtFinals）が既に計算済みの選手については、
 // 1本目・2本目それぞれの生の確定エントリを候補から除外し、必ず統合済みの
 // 採用得点（平均/高い方）だけを候補にする。confirmedAtのミリ秒差に依存すると
 // 生スコアの方が新しく見えて選ばれてしまうことがあるため、この関数で確実に統合結果を優先する。
