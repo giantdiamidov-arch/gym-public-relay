@@ -136,6 +136,7 @@
 
 <!-- 種目選択 -->
 <div id="setup">
+  <div id="event-name-banner" style="display:none;font-size:15px;font-weight:700;color:#dfaf4a;margin-bottom:10px"></div>
   <h2>🖥️ 場内得点表示</h2>
   <p class="sub">表示する種目を選択してください</p>
   <div class="gender-tabs">
@@ -258,12 +259,14 @@
       if(msg.type==='INIT') {
         // 接続直後のキャッチアップ：保持時間・キューを待たず即座に反映する
         applyPublicEnabledState((msg.state||{}).settings);
+        applyEventNameBanner((msg.state||{}).settings);
         stateData=msg.state;
         const newLatest = pickLatestDisplayCandidate(msg.state.confirmed, msg.state.vtFinals, myApparatus);
         displayHold.forceShow(newLatest);
       }
       if(msg.type==='STATE_UPDATE') {
         applyPublicEnabledState((msg.state||{}).settings);
+        applyEventNameBanner((msg.state||{}).settings);
         stateData=msg.state;
         // 編集・取り消しなど明示的なユーザー操作による更新では自動切り替えしない
         // （「場内表示に反映しますか？」で「はい」を選んだ場合のみ DISPLAY_FORCE_SHOW で切り替える）

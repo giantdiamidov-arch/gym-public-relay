@@ -145,6 +145,8 @@
   <span class="badge">👀 観覧専用ページ（編集・出力はできません）</span>
 </div>
 
+<div id="event-name-banner" style="display:none;text-align:center;font-size:14px;font-weight:700;color:#dfaf4a;padding:8px 12px;background:#1a1508;border-bottom:1px solid #3a2a10"></div>
+
 <div class="header">
   <h1>📊 結果（リザルト）</h1>
   <div class="header-right">
@@ -186,6 +188,7 @@
       try { msg = JSON.parse(e.data); } catch (err) { return; }
       if (msg.type === 'INIT' || msg.type === 'STATE_UPDATE') {
         applyPublicEnabledState((msg.state || {}).settings);
+        applyEventNameBanner((msg.state || {}).settings);
         appState = msg.state || appState;
         renderControls();
         render();

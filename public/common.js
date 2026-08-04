@@ -231,3 +231,18 @@ function applyPublicEnabledState(settings) {
     hidePublicDisabledOverlay();
   }
 }
+
+// 大会名バナーの表示（admin画面で設定した settings.eventName を各観覧ページのヘッダー直下に表示する）。
+// #event-name-banner 要素を持つページ（results/scoreboard/team_results/display）でのみ動作する。
+// 空文字・未設定の場合はバナーごと非表示にする。
+function applyEventNameBanner(settings) {
+  const el = document.getElementById('event-name-banner');
+  if (!el) return;
+  const name = settings && settings.eventName ? String(settings.eventName).trim() : '';
+  if (name) {
+    el.textContent = name;
+    el.style.display = 'block';
+  } else {
+    el.style.display = 'none';
+  }
+}

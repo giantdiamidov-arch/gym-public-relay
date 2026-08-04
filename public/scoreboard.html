@@ -113,6 +113,8 @@
   <span class="badge">👀 観覧専用ページ（編集はできません）</span>
 </div>
 
+<div id="event-name-banner" style="display:none;text-align:center;font-size:14px;font-weight:700;color:#dfaf4a;padding:8px 12px;background:#1a1508;border-bottom:1px solid #3a2a10"></div>
+
 <div class="header">
   <h1>🏆 記録一覧（公開）</h1>
   <div class="header-right">
@@ -149,6 +151,7 @@
       const msg = JSON.parse(e.data);
       if (msg.type === 'INIT' || msg.type === 'STATE_UPDATE') {
         applyPublicEnabledState(msg.state.settings);
+        applyEventNameBanner(msg.state.settings);
         const isNew = confirmed.length > 0 && (msg.state.confirmed || []).length > confirmed.length;
         confirmed = msg.state.confirmed || [];
         window._roster   = msg.state.roster   || [];
