@@ -52,6 +52,11 @@
   .athlete-org { font-size:12px; color:#7a8a99; margin-top:2px; }
   .cat-tag { font-size:11px; padding:2px 8px; border-radius:10px; background:#1a2a4a; color:#4a9eff; white-space:nowrap; }
   .app-badge { font-size:12px; padding:3px 8px; border-radius:8px; background:#1a2634; border:1px solid #2a3a4a; white-space:nowrap; }
+  .app-badge.mag { border-color:#4a9eff; background:#12233d; }
+  .app-badge.wag { border-color:#ff6ac8; background:#331330; }
+  .app-group-label { font-size:11px; font-weight:700; margin:0 2px 0 6px; }
+  .app-group-label.mag { color:#4a9eff; }
+  .app-group-label.wag { color:#ff6ac8; }
   .score-d { color:#df9f4a; font-variant-numeric:tabular-nums; }
   .score-nd { color:#ff8888; font-variant-numeric:tabular-nums; }
   .score-bonus { color:#88ff88; font-variant-numeric:tabular-nums; }
@@ -129,6 +134,19 @@
 <script>
   let ws, confirmed = [];
   let filterGender = 'ALL', filterCat = 'ALL', filterApp = 'ALL';
+  // ラベル表記はリザルト画面に合わせる（男子／女子、日本語の種目名）
+  const GENDER_LABEL = { MAG: '男子', WAG: '女子' };
+  const APPARATUS_JP = {
+    MAG_FX: 'ゆか', MAG_PH: 'あん馬', MAG_SR: 'つり輪', MAG_VT: '跳馬', MAG_PB: '平行棒', MAG_HB: '鉄棒',
+    WAG_VT: '跳馬', WAG_UB: '段違い平行棒', WAG_BB: '平均台', WAG_FX: 'ゆか',
+  };
+  function apparatusJp(code) { return APPARATUS_JP[code] || apparatusShort(code); }
+  // 一覧の種目欄：性別を付けて、性別の色の枠で表示する（例：「女子 🏃 跳馬」）
+  function appBadge(code) {
+    const g = APPARATUS[code]?.gender;
+    const gc = g === 'MAG' ? 'mag' : g === 'WAG' ? 'wag' : '';
+    return `<span class="app-badge ${gc}">${GENDER_LABEL[g] || ''} ${APPARATUS[code]?.icon || ''} ${apparatusJp(code)}</span>`;
+  }
   let sortKey = 'score', sortDir = -1; // -1=降順, 1=昇順
   let lastCount = 0;
   let reconnectDelay = 1000;
@@ -173,15 +191,15 @@
 
   // ── フィルター・ソートUI ──
   function renderControls() {
-    const genders = ['ALL', ...new Set(confirmed.map(r => APPARATUS[r.apparatus]?.gender).filter(Boolean))];
+    const genders = ['ALL', 'MAG', 'WAG'];
     function collectCategories() {
       const seen = new Set();
       const order = [];
-      (window._roster || []).forEach(r => {
+      (window._roster || []).filter(r => filterGender === 'ALL' || r.gender === filterGender).forEach(r => {
         const cats = Array.isArray(r.category) ? r.category : (r.category ? [r.category] : []);
         cats.forEach(c => { if (!seen.has(c)) { seen.add(c); order.push(c); } });
       });
-      confirmed.forEach(r => {
+      confirmed.filter(r => filterGender === 'ALL' || APPARATUS[r.apparatus]?.gender === filterGender).forEach(r => {
         // athlete.category は複数カテゴリー配列のことがあるため、roster側と同様にフラット化してから追加する
         const raw = r.athlete?.category;
         const rCats = Array.isArray(raw) ? raw : (raw ? [raw] : []);
@@ -190,12 +208,13 @@
       return order;
     }
     const cats    = ['ALL', ...collectCategories()];
-    const apps    = ['ALL', ...new Set(confirmed.map(r => r.apparatus).filter(Boolean))];
+    // 種目は「全て」以外、男子・女子の正式順で並べる（性別を選んでいればその性別の種目だけ）
+    const appGenders = filterGender === 'ALL' ? ['MAG', 'WAG'] : [filterGender];
 
     let html = `<div class="control-group"><span class="control-label">性別</span>`;
     genders.forEach(g => {
       const gc = g==='MAG' ? 'mag' : g==='WAG' ? 'wag' : '';
-      html += `<div class="filter-btn ${gc} ${filterGender===g?'active':''}" onclick="setFilter('gender','${g}')">${g==='ALL'?'全て':g}</div>`;
+      html += `<div class="filter-btn ${gc} ${filterGender===g?'active':''}" onclick="setFilter('gender','${g}')">${g==='ALL'?'全て':GENDER_LABEL[g]}</div>`;
     });
     html += `</div><div class="divider"></div>`;
 
@@ -204,10 +223,14 @@
     html += `</div><div class="divider"></div>`;
 
     html += `<div class="control-group"><span class="control-label">種目</span>`;
-    apps.forEach(a => {
-      const g = APPARATUS[a]?.gender;
-      const gc = g==='MAG' ? 'mag' : g==='WAG' ? 'wag' : '';
-      html += `<div class="filter-btn ${gc} ${filterApp===a?'active':''}" onclick="setFilter('app','${a}')">${a==='ALL'?'全て':apparatusShort(a)}</div>`;
+    html += `<div class="filter-btn ${filterApp==='ALL'?'active':''}" onclick="setFilter('app','ALL')">全て</div>`;
+    appGenders.forEach(g => {
+      const gc = g==='MAG' ? 'mag' : 'wag';
+      // 性別「全て」のときは、男女で同じ名前の種目を取り違えないよう「男子」「女子」の見出しを付けて分ける
+      if (filterGender === 'ALL') html += `<span class="app-group-label ${gc}">${GENDER_LABEL[g]}</span>`;
+      (g === 'MAG' ? MAG_ORDER : WAG_ORDER).forEach(a => {
+        html += `<div class="filter-btn ${gc} ${filterApp===a?'active':''}" onclick="setFilter('app','${a}')">${APPARATUS[a]?.icon || ''} ${apparatusJp(a)}</div>`;
+      });
     });
     html += `</div><div class="divider"></div>`;
 
@@ -221,7 +244,11 @@
   }
 
   function setFilter(type, val) {
-    if (type==='gender') filterGender=val;
+    if (type==='gender') {
+      // 性別を切り替えたら、カテゴリー・種目は「全て」に戻す（選んだままだと一覧が空になるため）
+      if (val !== filterGender) { filterCat = 'ALL'; filterApp = 'ALL'; }
+      filterGender=val;
+    }
     else if (type==='cat') filterCat=val;
     else if (type==='app') filterApp=val;
     renderControls();
@@ -351,7 +378,7 @@
             <div class="athlete-org">${r.athlete?.club||''}</div>
           </td>
           <td><span class="cat-tag">${(() => { const c=r.athlete?.category; return Array.isArray(c)?c.join('|'):(c||''); })()}</span></td>
-          <td><span class="app-badge">${apparatusShort(r.apparatus)}</span></td>
+          <td>${appBadge(r.apparatus)}</td>
           <td colspan="5" data-label="結果" style="text-align:center">
             <div style="display:flex;justify-content:center;gap:18px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
               <div style="text-align:center">
@@ -386,7 +413,7 @@
           <div class="athlete-org">${r.athlete?.club||''}</div>
         </td>
         <td><span class="cat-tag">${(() => { const c=r.athlete?.category; return Array.isArray(c)?c.join('|'):(c||''); })()}</span></td>
-        <td><span class="app-badge">${apparatusShort(r.apparatus)}</span></td>
+        <td>${appBadge(r.apparatus)}</td>
         ${r.isDNF ? `<td colspan="5" data-label="結果" style="text-align:center;color:#ff6a6a;font-weight:700;font-size:16px">🚫 棄権</td>` : `
         <td class="score-d" data-label="D">${Number(r.dScore).toFixed(1)}</td>
         <td class="score-nd" data-label="ND">${Number(r.nd||0).toFixed(1)}</td>
