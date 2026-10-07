@@ -142,8 +142,8 @@
   <h2>🖥️ 場内得点表示</h2>
   <p class="sub">表示する種目を選択してください</p>
   <div class="gender-tabs">
-    <div class="gender-tab mag active" id="tab-mag" onclick="selGender('MAG')">MAG</div>
-    <div class="gender-tab wag" id="tab-wag" onclick="selGender('WAG')">WAG</div>
+    <div class="gender-tab mag active" id="tab-mag" onclick="selGender('MAG')">男子</div>
+    <div class="gender-tab wag" id="tab-wag" onclick="selGender('WAG')">女子</div>
   </div>
   <div class="apparatus-grid" id="app-grid"></div>
   <button class="btn-start" id="btn-start" onclick="startDisplay()" disabled>この種目を表示開始 →</button>
@@ -181,6 +181,12 @@
 
 <script>
   let ws, myApparatus=null, selectedGender='MAG', selectedApp=null;
+  // 種目名・性別の日本語表記（リザルト・記録一覧と同じ表記）
+  const GENDER_JP = { MAG: '男子', WAG: '女子' };
+  const APPARATUS_JP = {
+    MAG_FX: 'ゆか', MAG_PH: 'あん馬', MAG_SR: 'つり輪', MAG_VT: '跳馬', MAG_PB: '平行棒', MAG_HB: '鉄棒',
+    WAG_VT: '跳馬', WAG_UB: '段違い平行棒', WAG_BB: '平均台', WAG_FX: 'ゆか',
+  };
   let latestScore=null, stateData={};
 
   // 場内表示の最低保持時間コントローラー（common.js）。
@@ -204,7 +210,7 @@
     document.getElementById('app-grid').innerHTML=order.map(code=>{
       const a=APPARATUS[code];
       return `<div class="app-btn ${selectedApp===code?'selected':''}" onclick="selApp('${code}')">
-        <div class="icon">${a.icon}</div><div class="label">${a.label}</div><div class="full">${a.full}</div>
+        <div class="icon">${a.icon}</div><div class="label">${APPARATUS_JP[code] || a.label}</div><div class="full">${a.full}（${a.label}）</div>
       </div>`;
     }).join('');
   }
@@ -215,7 +221,7 @@
     document.getElementById('setup').style.display='none';
     document.getElementById('display').style.display='flex';
     const a=APPARATUS[myApparatus];
-    document.getElementById('disp-apparatus').textContent=`${a.icon} ${a.gender} ${a.label}`;
+    document.getElementById('disp-apparatus').textContent=`${a.icon} ${GENDER_JP[a.gender] || a.gender} ${APPARATUS_JP[myApparatus] || a.label}`;
     document.getElementById('disp-apparatus-full').textContent=a.full;
     if (!ws || ws.readyState !== 1) connectWS();
     // 途中アクセス対応: myApparatus確定後にキャッシュ済み状態から即時表示する。
