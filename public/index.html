@@ -29,14 +29,24 @@
 </head>
 <body>
   <div class="logo">🤸</div>
-  <h1 id="event-name-title">体操採点システム</h1>
+  <h1>体操採点システム</h1>
   <p class="subtitle">観覧用ページ（閲覧専用）</p>
 
   <div class="cards">
+    <a href="scoreboard.html" class="card">
+      <div class="card-icon">🏆</div>
+      <div class="card-title">記録一覧</div>
+      <div class="card-desc">確定済みの得点をリアルタイムで表示</div>
+    </a>
     <a href="results.html" class="card">
       <div class="card-icon">📊</div>
       <div class="card-title">結果（リザルト）</div>
       <div class="card-desc">種目別・個人総合のランキングシート</div>
+    </a>
+    <a href="team_results.html" class="card">
+      <div class="card-icon">🏅</div>
+      <div class="card-title">団体総合</div>
+      <div class="card-desc">チーム別・種目上位N名合計のランキング</div>
     </a>
     <a href="display.html" class="card">
       <div class="card-icon">🖥️</div>
@@ -50,7 +60,6 @@
   <script>
     // 公開オン/オフの確認（/healthは観覧者にも公開されている軽量エンドポイント）
     fetch('/health').then(r => r.json()).then(d => {
-      if (d.eventName) document.getElementById('event-name-title').textContent = d.eventName;
       if (d.publicEnabled === false) {
         const overlay = document.createElement('div');
         overlay.style.cssText = `
