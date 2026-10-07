@@ -44,6 +44,11 @@
   .sheet { background:#1a2634; border:1px solid #2a3a4a; border-radius:14px; padding:16px; margin-bottom:18px; overflow-x:auto; }
   .sheet-title { font-size:15px; font-weight:700; margin-bottom:10px; color:#dfaf4a; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
   .sheet-title .g-tag { font-size:11px; padding:2px 8px; border-radius:10px; background:#1a2a4a; color:#4a9eff; }
+  /* 性別ごとの色帯の見出し（男子＝青、女子＝ピンク） */
+  .sheet-band { display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:10px 16px; margin-bottom:10px; border-radius:10px; font-size:20px; font-weight:800; letter-spacing:1px; color:#fff; }
+  .sheet-band.mag { background:#1a3f7a; border-left:8px solid #4a9eff; }
+  .sheet-band.wag { background:#6a1f55; border-left:8px solid #ff6ac8; }
+  .sheet-band .band-sub { font-size:12px; font-weight:400; letter-spacing:0; opacity:.8; }
 
   table { width:100%; border-collapse:collapse; min-width:600px; }
   thead th { background:#111d2a; padding:9px 10px; text-align:left; font-size:11px; color:#7a8a99; text-transform:uppercase; letter-spacing:0.05em; border-bottom:1px solid #2a3a4a; white-space:nowrap; }
@@ -96,6 +101,9 @@
     .sheet:last-child { page-break-after:auto; break-after:auto; }
     .sheet-title { color:#000; }
     .sheet-title .g-tag { background:#eee; color:#000; border:1px solid #aaa; }
+    .sheet-band { color:#000; background:#fff !important; border:1px solid #888; }
+    .sheet-band.mag { border-left:8px solid #1a3f7a; }
+    .sheet-band.wag { border-left:8px solid #a0306e; }
     thead th { background:#eee; color:#000; border-bottom:1px solid #000; }
     tbody tr { border-bottom:1px solid #ccc; }
     .score-final { color:#000; }
@@ -173,7 +181,19 @@
   let ws;
   let appState = { confirmed: [], vtFinals: {}, settings: {}, roster: [] };
   let mode = 'apparatus';            // 'apparatus' | 'total'
-  let filterGender = 'ALL';          // 'ALL' | 'MAG' | 'WAG'
+  // 性別は「男子」「女子」のどちらかを必ず選ぶ（「全て」は廃止）。前回選んだ性別で開く（初回は男子）。
+  // 男女で同じ名前の種目（跳馬・ゆか）を取り違えないようにするため。
+  const GENDER_STORAGE_KEY = 'results.filterGender';
+  let filterGender = (() => {
+    try { const v = localStorage.getItem(GENDER_STORAGE_KEY); if (v === 'MAG' || v === 'WAG') return v; } catch (e) {}
+    return 'MAG';
+  })();
+  // 種目ボタン・見出し用の日本語種目名
+  const APPARATUS_JP = {
+    MAG_FX: 'ゆか', MAG_PH: 'あん馬', MAG_SR: 'つり輪', MAG_VT: '跳馬', MAG_PB: '平行棒', MAG_HB: '鉄棒',
+    WAG_VT: '跳馬', WAG_UB: '段違い平行棒', WAG_BB: '平均台', WAG_FX: 'ゆか',
+  };
+  function apparatusJp(code) { return APPARATUS_JP[code] || apparatusShort(code); }
   let filterCategory = 'ALL';
   let filterApparatus = 'ALL';
   const expandedTotalIds = new Set(); // 個人総合：展開中の選手行（gender|category|bib）
@@ -297,10 +317,13 @@
   }
 
   // ── フィルター用の選択肢を集計 ──
+  // 選択中の性別の選手・種目だけを対象にする
   function collectOptions(rows) {
-    const categories = getCategoryOrder(appState, rows);
-    const apparatusSet = new Set(rows.map(r => r.apparatus));
-    return { categories, apparatusList: ALL_APPARATUS_ORDER.filter(a => apparatusSet.has(a)) };
+    const gRows = rows.filter(r => APPARATUS[r.apparatus]?.gender === filterGender);
+    const gState = { ...appState, roster: (appState.roster || []).filter(r => r.gender === filterGender) };
+    const categories = getCategoryOrder(gState, gRows);
+    const order = filterGender === 'WAG' ? WAG_ORDER : MAG_ORDER;
+    return { categories, apparatusList: order };
   }
 
   function renderControls() {
@@ -314,9 +337,9 @@
     html += `</div><div class="divider"></div>`;
 
     html += `<div class="control-group"><span class="control-label">性別</span>`;
-    ['ALL', 'MAG', 'WAG'].forEach(g => {
-      const gc = g === 'MAG' ? 'mag' : g === 'WAG' ? 'wag' : '';
-      html += `<div class="filter-btn ${gc} ${filterGender === g ? 'active' : ''}" onclick="setFilter('gender','${g}')">${g === 'ALL' ? '全て' : GENDER_LABEL[g]}</div>`;
+    ['MAG', 'WAG'].forEach(g => {
+      const gc = g === 'MAG' ? 'mag' : 'wag';
+      html += `<div class="filter-btn ${gc} ${filterGender === g ? 'active' : ''}" onclick="setFilter('gender','${g}')">${GENDER_LABEL[g]}</div>`;
     });
     html += `</div><div class="divider"></div>`;
 
@@ -333,7 +356,7 @@
       opts.apparatusList.forEach(a => {
         const g = APPARATUS[a]?.gender;
         const gc = g === 'MAG' ? 'mag' : g === 'WAG' ? 'wag' : '';
-        html += `<div class="filter-btn ${gc} ${filterApparatus === a ? 'active' : ''}" onclick="setFilter('app','${a}')">${apparatusShort(a)}</div>`;
+        html += `<div class="filter-btn ${gc} ${filterApparatus === a ? 'active' : ''}" onclick="setFilter('app','${a}')">${APPARATUS[a]?.icon || ''} ${apparatusJp(a)}</div>`;
       });
       html += `</div>`;
     } else {
@@ -349,7 +372,12 @@
 
   function setMode(m) { mode = m; renderControls(); render(); }
   function setFilter(type, val) {
-    if (type === 'gender') filterGender = val;
+    if (type === 'gender') {
+      if (val !== 'MAG' && val !== 'WAG') return;
+      if (val !== filterGender) { filterCategory = 'ALL'; filterApparatus = 'ALL'; }
+      filterGender = val;
+      try { localStorage.setItem(GENDER_STORAGE_KEY, val); } catch (e) {}
+    }
     else if (type === 'cat') filterCategory = val;
     else if (type === 'app') filterApparatus = val;
     renderControls();
@@ -485,7 +513,7 @@
   function renderApparatusSheet(g) {
     const a = APPARATUS[g.apparatus];
     let html = `<div class="sheet">
-      <div class="sheet-title"><span class="g-tag">${GENDER_LABEL[g.gender]}</span><span class="g-tag">${g.category}</span>${a.icon} ${a.full}（${a.label}）順位</div>
+      <div class="sheet-band ${g.gender === 'WAG' ? 'wag' : 'mag'}"><span>${GENDER_LABEL[g.gender]}</span><span>${g.category}</span><span>${a.icon} ${apparatusJp(g.apparatus)}</span><span class="band-sub">${a.full}（${a.label}）順位</span></div>
       <table><thead><tr>
         <th>順位</th><th>BIB</th><th>選手</th>
         <th>D</th><th>ND</th><th>BONUS</th><th>E平均</th><th>SCORE</th>
@@ -555,7 +583,7 @@
 
   function renderTotalSheet(g) {
     let html = `<div class="sheet">
-      <div class="sheet-title"><span class="g-tag">${GENDER_LABEL[g.gender]}</span><span class="g-tag">${g.category}</span>🧮 個人総合 順位</div>
+      <div class="sheet-band ${g.gender === 'WAG' ? 'wag' : 'mag'}"><span>${GENDER_LABEL[g.gender]}</span><span>${g.category}</span><span>🧮 個人総合</span><span class="band-sub">順位</span></div>
       <table><thead><tr>
         <th>順位</th><th>BIB</th><th>選手</th>`;
     g.apparatusOrder.forEach(code => { html += `<th>${apparatusShort(code)}</th>`; });
