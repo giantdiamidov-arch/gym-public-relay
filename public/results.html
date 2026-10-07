@@ -56,6 +56,9 @@
   .rank.r3 { color:#cd7f32; }
   .athlete-name { font-weight:700; font-size:14px; }
   .athlete-org { font-size:11px; color:#7a8a99; margin-top:2px; }
+  .score-d { color:#df9f4a; font-variant-numeric:tabular-nums; }
+  .score-nd { color:#ff8888; font-variant-numeric:tabular-nums; }
+  .score-bonus { color:#88ff88; font-variant-numeric:tabular-nums; }
   .score-e { color:#4a9eff; font-variant-numeric:tabular-nums; }
   .score-final { color:#4adf8f; font-size:16px; font-weight:700; font-variant-numeric:tabular-nums; }
   .score-cell-num { font-variant-numeric:tabular-nums; }
@@ -67,6 +70,11 @@
   .empty-icon { font-size:48px; margin-bottom:12px; }
 
   .vt-method-label { font-size:10px; color:#dfaf4a; }
+  /* 種目別：跳馬2本の内訳（1本目・2本目を各列に2段で表示） */
+  .vt-line { height:20px; line-height:20px; white-space:nowrap; }
+  .vt-line-label { font-size:10px; color:#7a8a99; margin-right:6px; }
+  .vt-adopt { border-top:1px dashed #2a3a4a; margin-top:4px; padding-top:4px; }
+  .vt-sub-final { font-size:13px; font-weight:400; color:#cfd8e0; }
 
   .total-row { cursor:pointer; }
   .expand-arrow { display:inline-block; width:14px; color:#7a8a99; font-size:11px; }
@@ -91,10 +99,13 @@
     thead th { background:#eee; color:#000; border-bottom:1px solid #000; }
     tbody tr { border-bottom:1px solid #ccc; }
     .score-final { color:#000; }
-    .score-e, .score-cell-num { color:#000; }
+    .score-d, .score-nd, .score-bonus, .score-e, .score-cell-num { color:#000; }
     .athlete-org, .time-cell, .complete-tag { color:#444; }
     .rank.r1, .rank.r2, .rank.r3 { color:#000; }
     .vt-method-label { color:#444; }
+    .vt-line-label { color:#444; }
+    .vt-sub-final { color:#000; }
+    .vt-adopt { border-top-color:#999; }
     .total-detail-row td { background:#f7f7f7; }
     .total-detail-label { color:#000; }
     .total-detail-sub, .total-detail-line, .total-detail-empty { color:#444; }
@@ -120,7 +131,7 @@
     tr:not(.total-detail-row) td:nth-child(2) { display:inline-block; font-size:13px; vertical-align:middle; margin-right:10px; }
     tr:not(.total-detail-row) td:nth-child(3) { display:inline-block; vertical-align:middle; }
 
-    /* 4列目以降（E平均・SCORE、種目別の合計や完了など）はラベル付き一覧に（内訳展開行は対象外） */
+    /* 4列目以降（D・ND・BONUS・E平均・SCORE、種目別の合計や完了など）はラベル付き一覧に（内訳展開行は対象外） */
     tr:not(.total-detail-row) td:nth-child(n+4) {
       display:flex; justify-content:space-between; align-items:center; gap:10px;
       padding:7px 0; border-top:1px solid #1a2a3a; font-size:13px;
@@ -144,8 +155,6 @@
   <a href="index.html">🏠 ホーム</a>
   <span class="badge">👀 観覧専用ページ（編集・出力はできません）</span>
 </div>
-
-<div id="event-name-banner" style="display:none;text-align:center;font-size:14px;font-weight:700;color:#dfaf4a;padding:8px 12px;background:#1a1508;border-bottom:1px solid #3a2a10"></div>
 
 <div class="header">
   <h1>📊 結果（リザルト）</h1>
@@ -188,7 +197,6 @@
       try { msg = JSON.parse(e.data); } catch (err) { return; }
       if (msg.type === 'INIT' || msg.type === 'STATE_UPDATE') {
         applyPublicEnabledState((msg.state || {}).settings);
-        applyEventNameBanner((msg.state || {}).settings);
         appState = msg.state || appState;
         renderControls();
         render();
@@ -199,12 +207,12 @@
   // ── 数値の丸め（合計表示用。0.001単位の浮動小数点誤差を吸収） ──
   function round3(x) { return Math.round((x + Number.EPSILON) * 1000) / 1000; }
 
-  // ── とび箱（旧VT）2本跳躍：1本目・2本目を1行に統合した表示用データを作る（scoreboard.htmlと同じロジック） ──
+  // ── VT（跳馬）2本跳躍：1本目・2本目を1行に統合した表示用データを作る（scoreboard.htmlと同じロジック） ──
   function buildMergedRows(state) {
     const confirmed = state.confirmed || [];
     const vtFinals = state.vtFinals || {};
     const settings = state.settings || {};
-    // とび箱の跳躍数は性別・カテゴリー別の上書き設定があり得るため、レコードごとのathlete.categoryで解決する
+    // VT跳躍数は性別・カテゴリー別の上書き設定があり得るため、レコードごとのathlete.categoryで解決する
     const vtMode = (r) => isVT(r.apparatus) && resolveVtSettings(settings, r.apparatus.split('_')[0], r.athlete?.category).vtVaults >= 2;
     const consumedIdx = new Set();
     const rows = [];
@@ -416,7 +424,7 @@
   function rankClass(rank) { return rank === 1 ? 'r1' : rank === 2 ? 'r2' : rank === 3 ? 'r3' : ''; }
   function fmtTime(iso) { return iso ? new Date(iso).toLocaleString('ja-JP') : ''; }
 
-  // ── 個人総合：選手行の展開・折りたたみ（クリックで種目ごとの内訳E平均を表示） ──
+  // ── 個人総合：選手行の展開・折りたたみ（クリックで種目ごとの内訳D/ND/BONUS/E平均を表示） ──
   function toggleTotalRow(id) {
     if (expandedTotalIds.has(id)) expandedTotalIds.delete(id); else expandedTotalIds.add(id);
     renderControls();
@@ -431,7 +439,7 @@
     render();
   }
 
-  // ── 個人総合の展開行：1種目分の内訳ブロック（通常種目はE平均、とび箱2本は1本目・2本目それぞれの内訳＋統合結果） ──
+  // ── 個人総合の展開行：1種目分の内訳ブロック（通常種目はD/ND/BONUS/E平均、跳馬2本は1本目・2本目それぞれの内訳＋統合結果） ──
   function totalDetailBlockHtml(code, r) {
     const a = APPARATUS[code];
     const label = `${a.icon} ${a.label}`;
@@ -443,24 +451,33 @@
     }
     if (r.__vt) {
       const v1 = r.__vt.vault1, v2 = r.__vt.vault2, vf = r.__vt.final;
+      const bonusVal = vf ? Number(vf.bonus || 0) : 0;
+      const bonusDisp = bonusVal ? `${bonusVal > 0 ? '+' : ''}${bonusVal.toFixed(1)}` : '±0.0';
       const methodLabel = vf ? (vf.method === 'avg' ? '2本平均' : `高い方:${vf.winnerVault}本目`) : '集計中';
       const vaultHtml = (name, v) => v
         ? `<div class="total-vault-box">
             <div class="total-detail-sub">${name}</div>
             <div class="total-detail-vals">
+              <div><span class="score-d">D ${Number(v.dScore).toFixed(1)}</span></div>
               <div><span class="score-e">E ${Number(v.eAvg).toFixed(3)}</span></div>
+              <div><span class="score-nd">ND ${Number(v.nd || 0).toFixed(1)}</span></div>
+              <div><span class="score-bonus">B ${Number(v.stickBonus || 0).toFixed(1)}</span></div>
             </div>
             <div class="score-final" style="font-size:12px">${Number(v.finalScore).toFixed(3)}</div>
           </div>`
         : `<div class="total-vault-box"><div class="total-detail-sub">${name}</div><div class="total-detail-empty">—</div></div>`;
       return `<div class="total-detail-label">${label}</div>
         ${vaultHtml('1本目', v1)}${vaultHtml('2本目', v2)}
+        <div class="total-detail-line"><span class="score-bonus">統合加点 ${bonusDisp}</span></div>
         <div class="total-detail-line">採用: ${methodLabel}</div>
         <div class="score-final" style="font-size:13px">${vf ? Number(vf.finalScore).toFixed(3) : '集計中'}</div>`;
     }
     return `<div class="total-detail-label">${label}</div>
       <div class="total-detail-vals">
+        <div><span class="score-d">D ${Number(r.dScore).toFixed(1)}</span></div>
         <div><span class="score-e">E ${Number(r.eAvg).toFixed(3)}</span></div>
+        <div><span class="score-nd">ND ${Number(r.nd || 0).toFixed(1)}</span></div>
+        <div><span class="score-bonus">B ${Number(r.stickBonus || 0).toFixed(1)}</span></div>
       </div>
       <div class="score-final" style="font-size:13px">${Number(r.finalScore).toFixed(3)}</div>`;
   }
@@ -471,33 +488,41 @@
       <div class="sheet-title"><span class="g-tag">${GENDER_LABEL[g.gender]}</span><span class="g-tag">${g.category}</span>${a.icon} ${a.full}（${a.label}）順位</div>
       <table><thead><tr>
         <th>順位</th><th>BIB</th><th>選手</th>
-        <th>E平均</th><th>SCORE</th>
+        <th>D</th><th>ND</th><th>BONUS</th><th>E平均</th><th>SCORE</th>
         <th>確定時刻</th>
       </tr></thead><tbody>`;
 
     g.rows.forEach(r => {
       const rk = r.__rank;
       if (r.__vt) {
+        // 跳馬2本：D・ND・BONUS・E平均の各列に1本目・2本目を2段で表示し、
+        // SCORE列に各本の得点＋採用得点（平均/高い方＋統合加点）を表示する。
         const v1 = r.__vt.vault1, v2 = r.__vt.vault2, vf = r.__vt.final;
-        const v1Score = v1 ? Number(v1.finalScore).toFixed(3) : '—';
-        const v2Score = v2 ? Number(v2.finalScore).toFixed(3) : '—';
         const finalDisp = vf ? Number(vf.finalScore).toFixed(3) : '—';
         const methodLabel = vf ? (vf.method === 'avg' ? '2本平均' : `高い方:${vf.winnerVault}本目`) : '集計中';
+        const bonusVal = vf ? Number(vf.bonus || 0) : 0;
+        const bonusDisp = bonusVal ? `${bonusVal>0?'+':''}${bonusVal.toFixed(1)}` : '±0.0';
+        const cellLine = (v, fn) => `<div class="vt-line">${!v ? '—' : v.isDNF ? '' : fn(v)}</div>`;
+        const vtCell = (cls, fn) => `<td class="${cls} score-cell-num" style="vertical-align:top">${cellLine(v1, fn)}${cellLine(v2, fn)}</td>`;
+        const scoreLine = (label, v) => `<div class="vt-line"><span class="vt-line-label">${label}</span><span class="vt-sub-final">${!v ? '—' : v.isDNF ? '棄権' : Number(v.finalScore).toFixed(3)}</span>${v?.hanaMaru?'<span style="font-size:0.75em;margin-left:4px">🌸</span>':''}</div>`;
         html += `<tr>
           <td class="rank ${rankClass(rk)}">${rk ?? '—'}</td>
           <td class="score-cell-num">${r.athlete?.bib || ''}</td>
           <td><div class="athlete-name">${r.athlete?.name || ''}</div><div class="athlete-org">${r.athlete?.club || ''}</div></td>
-          <td colspan="2" data-label="結果" style="text-align:center">
-            <div style="display:flex;justify-content:center;gap:16px;align-items:center;flex-wrap:wrap">
-              <div style="text-align:center"><div style="font-size:10px;color:#7a8a99">1本目</div><div class="score-cell-num">${v1Score}</div></div>
-              <div style="text-align:center"><div style="font-size:10px;color:#7a8a99">2本目</div><div class="score-cell-num">${v2Score}</div></div>
-              <div style="text-align:center">
-                <div class="vt-method-label">採用（${methodLabel}）</div>
-                <div class="score-final">${finalDisp}${(r.__vt?.vault1?.hanaMaru||r.__vt?.vault2?.hanaMaru)?'<span style="font-size:0.75em;margin-left:4px">🌸</span>':''}</div>
-              </div>
+          ${vtCell('score-d', v => Number(v.dScore).toFixed(1))}
+          ${vtCell('score-nd', v => Number(v.nd || 0).toFixed(1))}
+          ${vtCell('score-bonus', v => Number(v.stickBonus || 0).toFixed(1))}
+          ${vtCell('score-e', v => Number(v.eAvg).toFixed(3))}
+          <td style="vertical-align:top">
+            ${scoreLine('1本目', v1)}
+            ${scoreLine('2本目', v2)}
+            <div class="vt-adopt">
+              <div class="vt-method-label">採用（${methodLabel}）${bonusVal ? `　加点 ${bonusDisp}` : ''}</div>
+              <div class="score-final">${finalDisp}</div>
+              ${bonusVal ? `<div style="font-size:10px;color:#7a8a99">素点 ${Number(vf.baseFinalScore).toFixed(3)} ＋ 加点 ${bonusDisp}</div>` : ''}
             </div>
           </td>
-          <td class="time-cell" data-label="確定時刻">${fmtTime(r.confirmedAt)}</td>
+          <td class="time-cell">${fmtTime(r.confirmedAt)}</td>
         </tr>`;
         return;
       }
@@ -506,7 +531,7 @@
           <td class="rank">—</td>
           <td class="score-cell-num">${r.athlete?.bib || ''}</td>
           <td><div class="athlete-name">${r.athlete?.name || ''}</div><div class="athlete-org">${r.athlete?.club || ''}</div></td>
-          <td colspan="2" data-label="結果" class="dnf-cell">🚫 棄権</td>
+          <td colspan="5" data-label="結果" class="dnf-cell">🚫 棄権</td>
           <td class="time-cell" data-label="確定時刻">${fmtTime(r.confirmedAt)}</td>
         </tr>`;
         return;
@@ -515,6 +540,9 @@
         <td class="rank ${rankClass(rk)}">${rk ?? '—'}</td>
         <td class="score-cell-num">${r.athlete?.bib || ''}</td>
         <td><div class="athlete-name">${r.athlete?.name || ''}</div><div class="athlete-org">${r.athlete?.club || ''}</div></td>
+        <td class="score-d score-cell-num" data-label="D">${Number(r.dScore).toFixed(1)}</td>
+        <td class="score-nd score-cell-num" data-label="ND">${Number(r.nd || 0).toFixed(1)}</td>
+        <td class="score-bonus score-cell-num" data-label="BONUS">${Number(r.stickBonus || 0).toFixed(1)}</td>
         <td class="score-e score-cell-num" data-label="E平均">${Number(r.eAvg).toFixed(3)}</td>
         <td class="score-final" data-label="SCORE">${Number(r.finalScore).toFixed(3)}${r.hanaMaru?'<span style="font-size:0.75em;margin-left:4px">🌸</span>':''}</td>
         <td class="time-cell" data-label="確定時刻">${fmtTime(r.confirmedAt)}</td>
