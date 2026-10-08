@@ -137,6 +137,7 @@
   let prevSig = null;           // フォロー選手の「種目→得点」の前回値（新着検知用）
   let prevTickerKeys = null;    // 速報欄の前回表示分（新着の点滅用）
   let flashIds = new Set();     // 点滅させるフォロー選手のチップ
+  let detailOpen = null;        // 内訳ポップアップを開いている選手・種目 { fid, code }（閉じたらnull）
   let mountEl = null;
   let tickerOpen = lsGet(LS_TICKER_OPEN, false) === true; // 初期は3件だけ（スマホで表が下に押しやられないように）
   let options = { follow: true, ticker: true };
@@ -189,9 +190,104 @@
         sub += `<div class="fan-chip-sub">${vf.method === 'avg' ? '2本平均' : '高い方'}</div>`;
       }
     }
-    return `<div class="fan-chip${r ? ' done' : ''}${flash}">
+    // 得点がある種目はタップで内訳のポップアップを開く
+    const tappable = r && !r.isDNF;
+    const tap = tappable ? ` fan-tap" role="button" onclick="Fan.openDetail('${encodeURIComponent(f.id)}','${code}')` : '';
+    return `<div class="fan-chip${r ? ' done' : ''}${flash}${tap}">
       <div class="fan-chip-app">${APPARATUS[code]?.icon || ''} ${appJp(code)}</div>
       <div class="fan-chip-val">${val}</div>${sub}</div>`;
+  }
+
+  // ═════════════ 種目の内訳ポップアップ ═════════════
+  // フォロー選手の種目チップをタップすると全面に開く。上部の種目タブで切り替え、外側・✕・Escで閉じる。
+  // 新しい得点を受信したら中身も描き直す。
+  function noDScore(gender, category) {
+    const list = state?.settings?.noDScoreCategories || [];
+    return catsOf(category).some(c => list.includes(`${gender}|${c}`));
+  }
+  // ※ページ側の<table>用スタイルの影響を受けないよう、tableは使わずdivで組む
+  function detailRowHtml(label, v, noD) {
+    const head = label ? `<div class="fan-d-label">${label}</div>` : '';
+    if (!v) return `<div class="fan-d-block">${head}<div class="fan-dim">まだ確定していません</div></div>`;
+    if (v.isDNF) return `<div class="fan-d-block">${head}<span class="fan-dnf">棄権</span></div>`;
+    const nd = Number(v.nd || 0), b = Number(v.stickBonus || 0);
+    const eList = Object.keys(v.eScores || {}).sort().map(k => Number(v.eScores[k]).toFixed(1)).join('・');
+    const cell = (k, val, cls = '') => `<div class="fan-d-cell ${cls}"><span class="fan-k">${k}</span><span class="fan-v">${val}</span></div>`;
+    return `<div class="fan-d-block">${head}<div class="fan-d-row">
+      ${cell('D', noD ? '<span class="fan-dim">なし</span>' : Number(v.dScore).toFixed(1))}
+      ${cell('E', Number(v.eAvg).toFixed(3) + (eList ? `<span class="fan-e-list">審判 ${eList}</span>` : ''), 'fan-d-e')}
+      ${cell('ND', nd ? '−' + nd.toFixed(1) : '<span class="fan-dim">0.0</span>')}
+      ${cell('加点', b ? '＋' + b.toFixed(1) : '<span class="fan-dim">0.0</span>')}
+      ${cell('得点', fmt3(v.finalScore), 'fan-d-score')}
+    </div></div>`;
+  }
+  function detailBodyHtml(f, code, r) {
+    if (!r) return `<div class="fan-dm-empty fan-dim">この種目はまだ得点がありません</div>`;
+    if (r.isDNF) return `<div class="fan-dm-empty"><span class="fan-dnf">棄権</span></div>`;
+    const noD = noDScore(f.gender, f.category);
+    const cats = catsOf(r.athlete?.category);
+    const vf = r.__vt?.final;
+    let big, rankTxt = '';
+    if (r.__vt && !vf) {
+      const v = r.__vt.vault1 || r.__vt.vault2;
+      big = `<span class="fan-pending">${v ? fmt3(v.finalScore) : '—'}</span>`;
+      rankTxt = `${r.__vt.vault1 ? '1本目' : '2本目'}のみ・集計中`;
+    } else {
+      big = fmt3(r.finalScore) + (r.hanaMaru ? '<span class="fan-hm">🌸</span>' : '');
+      if (cats.length === 1) {
+        const ar = apparatusRank(rows, code, f.gender, cats[0], f.bib);
+        if (ar.rank) rankTxt = `${esc(cats[0])}クラス ${ar.rank}位 / ${ar.count}人`;
+      }
+    }
+    let body = `<div class="fan-dm-score"><div class="fan-dm-big">${big}</div><div class="fan-dm-rank">${rankTxt}</div></div>`;
+    if (r.__vt) {
+      body += detailRowHtml('1本目', r.__vt.vault1, noD) + detailRowHtml('2本目', r.__vt.vault2, noD);
+      if (vf) {
+        const bonus = Number(vf.bonus || 0);
+        body += `<div class="fan-d-final">${vf.method === 'avg' ? '2本の平均' : `高い方（${vf.winnerVault}本目）`} ${fmt3(vf.baseFinalScore)}${bonus ? ` ＋ 加点 ${bonus.toFixed(1)}` : ''} ＝ <b>${fmt3(vf.finalScore)}</b></div>`;
+      } else {
+        body += `<div class="fan-d-final fan-dim">2本そろうと採用得点（${resolveVtSettings(state?.settings || {}, f.gender, f.category).vtScoring === 'avg' ? '2本の平均' : '高い方'}）が決まります</div>`;
+      }
+    } else {
+      body += detailRowHtml('', r, noD);
+    }
+    const formula = noD ? '得点 ＝ E ＋ 加点 − ND（10点満点のクラス）' : '得点 ＝ D ＋ E − ND ＋ 加点';
+    body += `<div class="fan-dm-foot"><div>${formula}</div><div>E は審判の点数の平均です（「審判」の後ろは一人ずつの点数）。</div></div>`;
+    return body;
+  }
+  function renderDetail() {
+    if (!detailOpen) return;
+    const f = follows.find(x => x.id === detailOpen.fid);
+    if (!f) { closeModal(); return; }
+    const s = followSummary(f);
+    const code = detailOpen.code;
+    const standing = s.cats.map(cat => {
+      const t = totalStanding(rows, f.gender, cat, f.bib);
+      return t.me ? `<span>${s.cats.length > 1 ? esc(cat) + 'クラス ' : ''}個人総合（暫定）<b>${t.me.rank}位</b> / ${t.count}人・合計 ${fmt3(t.me.total)}</span>` : '';
+    }).join(' ');
+    const tabs = s.order.map(c => {
+      const r = s.byCode[c];
+      return `<button class="fan-dm-tab ${c === code ? 'on' : ''} ${r ? '' : 'none'}" onclick="Fan.detailTab('${c}')">${APPARATUS[c]?.icon || ''} ${appJp(c)}</button>`;
+    }).join('');
+    let m = document.getElementById('fan-modal');
+    if (!m || m.dataset.kind !== 'detail') {
+      closeModal(true);
+      m = document.createElement('div');
+      m.id = 'fan-modal';
+      m.dataset.kind = 'detail';
+      m.onclick = e => { if (e.target === m) closeModal(); };
+      document.body.appendChild(m);
+    }
+    m.innerHTML = `<div class="fan-modal-box fan-dm ${f.gender === 'WAG' ? 'wag' : 'mag'}">
+      <div class="fan-modal-head">
+        <div><div class="fan-name">⭐ ${esc(f.name)}</div>
+          <div class="fan-meta">${GENDER_JP[f.gender] || ''} ${esc(catText(f.category))}クラス ・ BIB ${esc(f.bib)}${f.club ? ' ・ ' + esc(f.club) : ''}</div>
+          <div class="fan-dm-standing">${standing}</div></div>
+        <button class="fan-btn" onclick="Fan.closeModal()">✕ 閉じる</button>
+      </div>
+      <div class="fan-dm-tabs">${tabs}</div>
+      <div class="fan-dm-body">${detailBodyHtml(f, code, s.byCode[code])}</div>
+    </div>`;
   }
 
   function followCardHtml(f) {
@@ -217,6 +313,7 @@
       </div>
       ${standings}
       <div class="fan-chips">${s.order.map(code => chipHtml(f, code, s.byCode[code])).join('')}</div>
+      ${done ? '<div class="fan-dim fan-small fan-tap-hint">種目をタップすると D・E などの内訳が見られます</div>' : ''}
     </div>`;
   }
 
@@ -379,7 +476,8 @@
     renderPickerList();
     render();
   }
-  function closeModal() { const m = document.getElementById('fan-modal'); if (m) m.remove(); }
+  // keepDetail=true は内訳ポップアップを開き直すとき（ほかのポップアップを閉じるだけ）
+  function closeModal(keepDetail) { const m = document.getElementById('fan-modal'); if (m) m.remove(); if (keepDetail !== true) detailOpen = null; }
 
   // ═════════════ ❓ 得点の見かた ═════════════
   function eJudgeText(settings, gender) {
@@ -506,6 +604,35 @@
   .fan-chip-app { font-size:11px; color:#9aa8b5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .fan-chip-val { font-size:15px; font-weight:700; color:#4adf8f; font-variant-numeric:tabular-nums; }
   .fan-chip-sub { font-size:10px; color:#dfaf4a; }
+  .fan-chip.fan-tap { cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .fan-chip.fan-tap:active { transform:scale(0.97); border-color:#dfaf4a; }
+  .fan-tap-hint { margin-top:6px; text-align:center; }
+  /* 内訳ポップアップ */
+  .fan-dm.mag { border-left:6px solid #4a9eff; }
+  .fan-dm.wag { border-left:6px solid #ff6ac8; }
+  .fan-dm-standing { font-size:13px; color:#dfaf4a; margin-top:4px; }
+  .fan-dm-standing b { font-size:16px; }
+  .fan-dm-tabs { display:flex; gap:6px; overflow-x:auto; padding-bottom:6px; margin-bottom:8px; -webkit-overflow-scrolling:touch; }
+  .fan-dm-tab { flex:0 0 auto; padding:7px 10px; border-radius:16px; border:1px solid #2a3a4a; background:#1a2634; color:#cfd8e0; font-size:13px; cursor:pointer; }
+  .fan-dm-tab.on { border-color:#dfaf4a; background:#2e261a; color:#ffd77a; font-weight:700; }
+  .fan-dm-tab.none { opacity:.45; }
+  .fan-dm-body { background:#121b26; border:1px solid #22303f; border-radius:10px; padding:12px; }
+  .fan-dm-score { text-align:center; margin-bottom:10px; }
+  .fan-dm-big { font-size:40px; font-weight:800; color:#4adf8f; font-variant-numeric:tabular-nums; line-height:1.1; }
+  .fan-dm-rank { font-size:14px; color:#dfaf4a; margin-top:2px; }
+  .fan-dm-empty { text-align:center; padding:24px 0; }
+  .fan-d-block { padding:6px 0; }
+  .fan-d-block + .fan-d-block { border-top:1px dashed #2a3a4a; }
+  .fan-d-label { font-size:12px; color:#9aa8b5; margin-bottom:2px; }
+  .fan-d-row { display:grid; grid-template-columns:0.8fr 1.6fr 0.8fr 0.8fr 1.3fr; gap:4px; align-items:start; font-variant-numeric:tabular-nums; }
+  .fan-d-cell { text-align:center; min-width:0; }
+  .fan-k { display:block; font-size:11px; color:#7a8a99; }
+  .fan-v { display:block; font-size:18px; white-space:nowrap; }
+  .fan-e-list { display:block; font-size:10px; color:#7a8a99; white-space:normal; line-height:1.3; margin-top:2px; }
+  .fan-d-score .fan-v { color:#4adf8f; font-weight:700; }
+  .fan-d-final { margin-top:8px; font-size:14px; text-align:right; }
+  .fan-d-final b { color:#4adf8f; font-size:18px; }
+  .fan-dm-foot { margin-top:10px; font-size:12px; color:#9aa8b5; line-height:1.6; }
   .fan-pending { color:#c5d0da; } .fan-dnf { color:#ff8888; font-size:13px; } .fan-hm { font-size:12px; margin-left:2px; }
   .fan-ticker ul { list-style:none; display:flex; flex-direction:column; gap:4px; }
   .fan-ticker li { display:grid; grid-template-columns:62px 112px 1fr auto; gap:8px; align-items:center; font-size:13px; padding:5px 6px; border-radius:6px; background:#0f1923; }
@@ -595,11 +722,15 @@
       render();
       refreshClubs();
       if (document.getElementById('fan-picker-list')) renderPickerList();
+      if (detailOpen && document.getElementById('fan-modal')?.dataset.kind === 'detail') renderDetail();
     }),
     openPicker: safe(openPicker),
     openGuide: safe(function () { injectCss(); openGuide(); }),
     closeModal: safe(closeModal),
     toggleTicker: safe(function () { tickerOpen = !tickerOpen; lsSet(LS_TICKER_OPEN, tickerOpen); render(); }),
+    // フォロー選手の種目チップをタップ → 内訳ポップアップ
+    openDetail: safe(function (fidEnc, code) { injectCss(); detailOpen = { fid: decodeURIComponent(fidEnc), code }; renderDetail(); }),
+    detailTab: safe(function (code) { if (detailOpen) { detailOpen.code = code; renderDetail(); } }),
     mountFinder: safe(function (el, onChange) { injectCss(); mountFinder(el, onChange); }),
     finderMatch: function (athlete) { try { return finderMatch(athlete); } catch (e) { return true; } },
     finderActive: function () { try { return finderActive(); } catch (e) { return false; } },
