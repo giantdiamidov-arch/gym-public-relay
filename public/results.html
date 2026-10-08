@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>リザルト出力</title>
 <script src="common.js"></script>
+<script src="fan.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #0f1923; color: #fff; min-height: 100vh; }
@@ -161,6 +162,7 @@
 
 <div class="nav">
   <a href="index.html">🏠 ホーム</a>
+  <button class="fan-guide-btn" onclick="Fan.openGuide()">❓ 得点の見かた</button>
   <span class="badge">👀 観覧専用ページ（編集・出力はできません）</span>
 </div>
 
@@ -171,7 +173,9 @@
   </div>
 </div>
 
+<div id="fan-area"></div>
 <div class="controls" id="controls"></div>
+<div id="finder"></div>
 <div class="main" id="main"><div class="empty-state"><div class="empty-icon">⏳</div>接続中...</div></div>
 
 <script>
@@ -218,6 +222,7 @@
       if (msg.type === 'INIT' || msg.type === 'STATE_UPDATE') {
         applyPublicEnabledState((msg.state || {}).settings);
         appState = msg.state || appState;
+        if (window.Fan) Fan.update(appState);
         renderControls();
         render();
       }
@@ -619,14 +624,24 @@
 
   function render() {
     const main = document.getElementById('main');
-    const groups = buildGroups();
+    let groups = buildGroups();
+    // 所属・名前の絞り込み（fan.js）：順位はクラス全体で付けたまま、該当する選手の行だけを残す
+    const finding = !!(window.Fan && Fan.finderActive());
+    if (finding) {
+      groups = groups.map(g => ({ ...g, rows: g.rows.filter(r => Fan.finderMatch(r.athlete)) })).filter(g => g.rows.length > 0);
+    }
     if (groups.length === 0) {
       main.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div>該当する確定得点がありません</div>`;
       return;
     }
-    main.innerHTML = groups.map(g => g.type === 'apparatus' ? renderApparatusSheet(g) : renderTotalSheet(g)).join('');
+    const note = finding ? `<div style="font-size:12px;color:#dfaf4a;margin:0 2px 10px">🔍 絞り込み表示中です。順位はクラス全体での順位です。</div>` : '';
+    main.innerHTML = note + groups.map(g => g.type === 'apparatus' ? renderApparatusSheet(g) : renderTotalSheet(g)).join('');
   }
 
+  if (window.Fan) {
+    Fan.init(document.getElementById('fan-area'));
+    Fan.mountFinder(document.getElementById('finder'), () => render());
+  }
   connectWS();
 </script>
 </body>

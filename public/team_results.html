@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>団体総合リザルト（観覧用）</title>
 <script src="common.js"></script>
+<script src="fan.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #0f1923; color: #fff; min-height: 100vh; }
@@ -93,6 +94,7 @@
   <a href="index.html">🏠 ホーム</a>
   <a href="results.html">📊 個人リザルト</a>
   <a href="scoreboard.html">🏆 記録一覧</a>
+  <button class="fan-guide-btn" onclick="Fan.openGuide()">❓ 得点の見かた</button>
 </div>
 
 <div class="header">
@@ -149,6 +151,7 @@
     if (msg.type === 'INIT' || msg.type === 'STATE_UPDATE') {
       applyPublicEnabledState((msg.state || {}).settings);
       appState = msg.state;
+      if (window.Fan) Fan.update(appState);
       render();
     }
   });

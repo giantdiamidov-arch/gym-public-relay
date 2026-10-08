@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>記録一覧（公開）</title>
 <script src="common.js"></script>
+<script src="fan.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #0f1923; color: #fff; min-height: 100vh; }
@@ -118,6 +119,7 @@
 
 <div class="nav">
   <a href="index.html">🏠 ホーム</a>
+  <button class="fan-guide-btn" onclick="Fan.openGuide()">❓ 得点の見かた</button>
   <span class="badge">👀 観覧専用ページ（編集はできません）</span>
 </div>
 
@@ -128,7 +130,9 @@
   </div>
 </div>
 
+<div id="fan-area"></div>
 <div class="controls" id="controls"></div>
+<div id="finder"></div>
 <div class="main" id="main"><div class="empty-state"><div class="empty-icon">⏳</div>接続中...</div></div>
 
 <script>
@@ -175,6 +179,7 @@
         window._roster   = msg.state.roster   || [];
         window._settings = msg.state.settings || {};
         window._vtFinals = msg.state.vtFinals || {};
+        if (window.Fan) Fan.update(msg.state);
         renderControls();
         render(isNew);
       }
@@ -318,6 +323,8 @@
         if (!cats.includes(filterCat)) return false;
       }
       if (filterApp!=='ALL' && r.apparatus!==filterApp) return false;
+      // 所属・名前の絞り込み（fan.js）
+      if (window.Fan && !Fan.finderMatch(r.athlete)) return false;
       return true;
     });
 
@@ -338,11 +345,14 @@
 
     const main = document.getElementById('main');
     if (filtered.length===0) {
-      main.innerHTML = `<div class="empty-state"><div class="empty-icon">🤸</div>確定得点がここに表示されます</div>`;
+      main.innerHTML = (window.Fan && Fan.finderActive() && confirmed.length)
+        ? `<div class="empty-state"><div class="empty-icon">🔍</div>条件に合う得点がありません</div>`
+        : `<div class="empty-state"><div class="empty-icon">🤸</div>確定得点がここに表示されます</div>`;
       return;
     }
 
-    const showRank = sortKey==='score' && sortDir===-1;
+    // 所属・名前で絞り込んでいるときは、並び順の番号が本当の順位と誤解されないよう順位を出さない
+    const showRank = sortKey==='score' && sortDir===-1 && !(window.Fan && Fan.finderActive());
 
     let html = `<table><thead><tr>
       <th onclick="setSort('score')" class="${sortKey==='score'?'sorted':''}">順位</th>
@@ -430,6 +440,10 @@
     lastCount = confirmed.length;
   }
 
+  if (window.Fan) {
+    Fan.init(document.getElementById('fan-area'));
+    Fan.mountFinder(document.getElementById('finder'), () => render());
+  }
   connectWS();
 </script>
 </body>
