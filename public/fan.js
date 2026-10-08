@@ -211,11 +211,11 @@
     if (!v) return `<div class="fan-d-block">${head}<div class="fan-dim">まだ確定していません</div></div>`;
     if (v.isDNF) return `<div class="fan-d-block">${head}<span class="fan-dnf">棄権</span></div>`;
     const nd = Number(v.nd || 0), b = Number(v.stickBonus || 0);
-    const eList = Object.keys(v.eScores || {}).sort().map(k => Number(v.eScores[k]).toFixed(1)).join('・');
+    // ※審判ひとりずつのEの点数は、観覧用ページには出さない（平均のみ表示）
     const cell = (k, val, cls = '') => `<div class="fan-d-cell ${cls}"><span class="fan-k">${k}</span><span class="fan-v">${val}</span></div>`;
     return `<div class="fan-d-block">${head}<div class="fan-d-row">
       ${cell('D', noD ? '<span class="fan-dim">なし</span>' : Number(v.dScore).toFixed(1))}
-      ${cell('E', Number(v.eAvg).toFixed(3) + (eList ? `<span class="fan-e-list">審判 ${eList}</span>` : ''), 'fan-d-e')}
+      ${cell('E', Number(v.eAvg).toFixed(3), 'fan-d-e')}
       ${cell('ND', nd ? '−' + nd.toFixed(1) : '<span class="fan-dim">0.0</span>')}
       ${cell('加点', b ? '＋' + b.toFixed(1) : '<span class="fan-dim">0.0</span>')}
       ${cell('得点', fmt3(v.finalScore), 'fan-d-score')}
@@ -252,7 +252,7 @@
       body += detailRowHtml('', r, noD);
     }
     const formula = noD ? '得点 ＝ E ＋ 加点 − ND（10点満点のクラス）' : '得点 ＝ D ＋ E − ND ＋ 加点';
-    body += `<div class="fan-dm-foot"><div>${formula}</div><div>E は審判の点数の平均です（「審判」の後ろは一人ずつの点数）。</div></div>`;
+    body += `<div class="fan-dm-foot"><div>${formula}</div><div>E は審判の点数の平均です。</div></div>`;
     return body;
   }
   function renderDetail() {
@@ -628,7 +628,6 @@
   .fan-d-cell { text-align:center; min-width:0; }
   .fan-k { display:block; font-size:11px; color:#7a8a99; }
   .fan-v { display:block; font-size:18px; white-space:nowrap; }
-  .fan-e-list { display:block; font-size:10px; color:#7a8a99; white-space:normal; line-height:1.3; margin-top:2px; }
   .fan-d-score .fan-v { color:#4adf8f; font-weight:700; }
   .fan-d-final { margin-top:8px; font-size:14px; text-align:right; }
   .fan-d-final b { color:#4adf8f; font-size:18px; }
