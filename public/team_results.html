@@ -86,6 +86,12 @@
     .rank.r2 { color:#666; }
     .rank.r3 { color:#884400; }
   }
+  /* 大会名（管理画面で入力した settings.eventName。2026-10-09追加） */
+  .title-wrap { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; min-width:0; }
+  .event-name { font-size:14px; font-weight:700; color:#dfaf4a; padding-left:12px; border-left:2px solid #3a4a5a; }
+  .event-name:empty { display:none; }
+  @media (max-width: 640px) { .event-name { font-size:12px; padding-left:8px; } }
+  @media print { .event-name { color:#000; border-left-color:#888; } }
 </style>
 </head>
 <body>
@@ -98,7 +104,7 @@
 </div>
 
 <div class="header">
-  <h1>🏅 団体総合リザルト</h1>
+  <div class="title-wrap"><h1>🏅 団体総合リザルト</h1><span class="event-name" id="event-name"></span></div>
   <div class="header-right">
     <span style="font-size:11px;color:#4a9eff;background:#1a2a4a;border:1px solid #2a3a6a;padding:3px 10px;border-radius:10px">👁️ 閲覧専用</span>
     <span><span class="conn-dot" id="conn-dot"></span><span id="conn-label" style="font-size:12px;color:#7a8a99">接続中...</span></span>
@@ -129,6 +135,15 @@
   let filterGender = 'ALL';
   let filterCategory = 'ALL';
 
+  // ── 大会名の表示（管理画面で入力した settings.eventName。未入力なら何も出さない） ──
+  function applyEventName(settings) {
+    const name = (settings && settings.eventName ? String(settings.eventName) : '').trim();
+    const el = document.getElementById('event-name');
+    if (el && el.textContent !== name) el.textContent = name;
+    const base = document.title.split(' ｜ ')[0];
+    document.title = name ? base + ' ｜ ' + name : base;
+  }
+
   // ── WebSocket接続 ──
   const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
   const ws = new WebSocket(`${wsProto}://${location.host}`);
@@ -151,6 +166,7 @@
     if (msg.type === 'INIT' || msg.type === 'STATE_UPDATE') {
       applyPublicEnabledState((msg.state || {}).settings);
       appState = msg.state;
+      applyEventName((appState || {}).settings);
       if (window.Fan) Fan.update(appState);
       render();
     }

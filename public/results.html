@@ -156,6 +156,12 @@
     .total-detail-row td:empty { display:none; }
     .total-detail-cell { text-align:left; min-width:0; margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid #1a2a3a; }
   }
+  /* 大会名（管理画面で入力した settings.eventName。2026-10-09追加） */
+  .title-wrap { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; min-width:0; }
+  .event-name { font-size:14px; font-weight:700; color:#dfaf4a; padding-left:12px; border-left:2px solid #3a4a5a; }
+  .event-name:empty { display:none; }
+  @media (max-width: 640px) { .event-name { font-size:12px; padding-left:8px; } }
+  @media print { .event-name { color:#000; border-left-color:#888; } }
 </style>
 </head>
 <body>
@@ -167,7 +173,7 @@
 </div>
 
 <div class="header">
-  <h1>📊 結果（リザルト）</h1>
+  <div class="title-wrap"><h1>📊 結果（リザルト）</h1><span class="event-name" id="event-name"></span></div>
   <div class="header-right">
     <div style="font-size:13px;color:#7a8a99"><span class="conn-dot" id="conn-dot"></span><span id="conn-text">接続中...</span></div>
   </div>
@@ -222,6 +228,7 @@
       if (msg.type === 'INIT' || msg.type === 'STATE_UPDATE') {
         applyPublicEnabledState((msg.state || {}).settings);
         appState = msg.state || appState;
+        applyEventName(appState.settings);
         if (window.Fan) Fan.update(appState);
         renderControls();
         render();
@@ -641,6 +648,14 @@
   if (window.Fan) {
     Fan.init(document.getElementById('fan-area'));
     Fan.mountFinder(document.getElementById('finder'), () => render());
+  }
+  // ── 大会名の表示（管理画面で入力した settings.eventName。未入力なら何も出さない） ──
+  function applyEventName(settings) {
+    const name = (settings && settings.eventName ? String(settings.eventName) : '').trim();
+    const el = document.getElementById('event-name');
+    if (el && el.textContent !== name) el.textContent = name;
+    const base = document.title.split(' ｜ ')[0];
+    document.title = name ? base + ' ｜ ' + name : base;
   }
   connectWS();
 </script>
