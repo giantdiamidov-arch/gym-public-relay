@@ -331,9 +331,60 @@
   }
 
   // ═════════════ ⚡ 速報 ═════════════
+  // ── 確定後の得点変更（記録本部での編集）の検知 ──（2026-10-09追加）
+  // 種目×選手ごとの得点の「前回値」と比べ、すでにあった得点の値が変わったら「変更」とみなす。
+  // ・ふつうの種目：得点（棄権含む）が変わった
+  // ・跳馬2本：すでにあった1本目／2本目の得点が変わった、または各本はそのままで採用得点が変わった（加点の変更）
+  //   （2本目の確定や採用得点の初回計算は新着であって変更ではない）
+  // 変更した項目は速報の一番上に「変更」付きで出す。サーバー時刻と端末の時計のずれで並びが崩れないよう、
+  // 並べ替え用の時刻は「今」と「いま出ている確定時刻の最大値」の新しい方にする。
+  // 変更の記録はブラウザに保存し（fan.edits、12時間で破棄）、ページを開き直しても「変更」表示が残る。
+  // その後その項目に新しい確定（例：2本目）が来たら、確定時刻が変わるので「変更」表示は外れる。
+  const LS_EDITS = 'fan.edits';
+  let edits = lsGet(LS_EDITS, {});
+  if (!edits || typeof edits !== 'object') edits = {};
+  let itemSigPrev = null;
+  let editedNow = new Set();
+  function itemKey(r) { return `${r.apparatus}|${r.athlete?.bib}|${categoryKey(r.athlete?.category)}`; }
+  function vSig(v) { return v ? (v.isDNF ? 'DNF' : String(v.finalScore)) : null; }
+  function itemSig(r) {
+    if (r.__vt) return { v1: vSig(r.__vt.vault1), v2: vSig(r.__vt.vault2), vf: r.__vt.final ? String(r.__vt.final.finalScore) : null };
+    return { s: r.isDNF ? 'DNF' : String(r.finalScore) };
+  }
+  function detectEdits() {
+    editedNow = new Set();
+    const cur = new Map(rows.map(r => [itemKey(r), itemSig(r)]));
+    if (itemSigPrev && itemSigPrev.size > 0 && cur.size > 0) {
+      const maxConf = rows.reduce((m, r) => (r.confirmedAt && r.confirmedAt > m ? r.confirmedAt : m), '');
+      const nowIso = new Date().toISOString();
+      const at = nowIso > maxConf ? nowIso : new Date(new Date(maxConf).getTime() + 1).toISOString();
+      rows.forEach(r => {
+        const k = itemKey(r), sig = cur.get(k), p = itemSigPrev.get(k);
+        if (!p) return;
+        let edited;
+        if ('s' in sig) edited = ('s' in p) && p.s !== sig.s;
+        else edited = (p.v1 !== null && p.v1 !== undefined && sig.v1 !== null && p.v1 !== sig.v1) ||
+                      (p.v2 !== null && p.v2 !== undefined && sig.v2 !== null && p.v2 !== sig.v2) ||
+                      (p.vf !== null && p.vf !== undefined && sig.vf !== null && p.vf !== sig.vf && p.v1 === sig.v1 && p.v2 === sig.v2);
+        if (edited) { edits[k] = { at, conf: r.confirmedAt || '' }; editedNow.add(k); }
+      });
+    }
+    // 12時間より前の記録は捨てる
+    const limit = Date.now() - 12 * 3600 * 1000;
+    Object.keys(edits).forEach(k => { if (!(new Date(edits[k]?.at).getTime() > limit)) delete edits[k]; });
+    if (editedNow.size || Object.keys(edits).length) lsSet(LS_EDITS, edits);
+    itemSigPrev = cur;
+  }
+  // その行に有効な「変更」記録（変更後に新しい確定が来ていないもの）
+  function editOf(r) {
+    const e = edits[itemKey(r)];
+    return e && e.conf === (r.confirmedAt || '') ? e : null;
+  }
+  function tickTime(r) { const e = editOf(r); return e ? e.at : r.confirmedAt; }
+
   function tickerItems(limit) {
     return rows.filter(r => r.confirmedAt)
-      .sort((a, b) => String(b.confirmedAt).localeCompare(String(a.confirmedAt)))
+      .sort((a, b) => String(tickTime(b)).localeCompare(String(tickTime(a))))
       .slice(0, limit);
   }
   function tickerKey(r) { return `${r.apparatus}|${r.athlete?.bib}|${categoryKey(r.athlete?.category)}|${r.confirmedAt}|${r.finalScore}`; }
@@ -351,15 +402,17 @@
         const v = r.__vt.vault2 || r.__vt.vault1;
         score = `<span class="fan-pending">${v ? fmt3(v.finalScore) : '—'}</span><span class="fan-dim fan-small"> ${r.__vt.vault2 ? '2本目' : '1本目'}</span>`;
       } else score = fmt3(r.finalScore) + (r.__vt ? '<span class="fan-dim fan-small"> 採用</span>' : '');
-      return `<li class="${fresh.includes(tickerKey(r)) ? 'fan-flash' : ''}${isFollowed(fid) ? ' fan-mine' : ''}">
-        <span class="fan-t-time" data-iso="${esc(r.confirmedAt)}">${agoText(r.confirmedAt)}</span>
+      const ed = editOf(r);
+      if (ed) score = `<span class="fan-edit-tag">変更</span>` + score;
+      return `<li class="${fresh.includes(tickerKey(r)) ? 'fan-flash' : ''}${isFollowed(fid) ? ' fan-mine' : ''}${ed ? ' fan-edited' : ''}">
+        <span class="fan-t-time" data-iso="${esc(tickTime(r))}">${agoText(tickTime(r))}</span>
         <span class="fan-t-app ${g === 'WAG' ? 'wag' : 'mag'}">${GENDER_JP[g] || ''} ${appJp(r.apparatus)}</span>
         <span class="fan-t-name">${isFollowed(fid) ? '⭐' : ''}${esc(r.athlete?.name)}<span class="fan-dim fan-small"> ${esc(catText(r.athlete?.category))}・${esc(r.athlete?.club)}</span></span>
         <span class="fan-t-score">${score}</span>
       </li>`;
     }).join('');
     return `<div class="fan-ticker">
-      <div class="fan-sec-head"><span>⚡ 速報（新しく確定した得点）</span>
+      <div class="fan-sec-head"><span>⚡ 速報（確定・変更された得点）</span>
         <button class="fan-btn" onclick="Fan.toggleTicker()">${tickerOpen ? '▴ 少なく' : '▾ もっと見る'}</button></div>
       <ul>${lis}</ul>
     </div>`;
@@ -394,7 +447,8 @@
           const v = isSecond ? r.__vt.vault2 : (r.__vt.vault1 || r.__vt.vault2);
           txt = `${isSecond ? '2本目' : '1本目'} ${fmt3(v.finalScore)}`;
         } else txt = (r.__vt ? '採用 ' : '') + fmt3(r.finalScore);
-        toast(`⭐ ${f.name}さん　${appJp(code)} <b>${txt}</b>`);
+        const wasEdited = editedNow.has(`${code}|${bib}|${ck}`);
+        toast(`⭐ ${f.name}さん　${appJp(code)} ${wasEdited ? '<span class="fan-edit-tag">変更</span>' : ''}<b>${txt}</b>`);
       });
       if (changed.length && navigator.vibrate) { try { navigator.vibrate(120); } catch (e) {} }
       if (changed.length) setTimeout(() => { flashIds.clear(); }, 4000);
@@ -636,6 +690,7 @@
   .fan-ticker ul { list-style:none; display:flex; flex-direction:column; gap:4px; }
   .fan-ticker li { display:grid; grid-template-columns:62px 112px 1fr auto; gap:8px; align-items:center; font-size:13px; padding:5px 6px; border-radius:6px; background:#0f1923; }
   .fan-ticker li.fan-mine { background:#2a2410; }
+  .fan-edit-tag { display:inline-block; font-size:10px; font-weight:700; color:#ffb366; border:1px solid #ffb366; border-radius:4px; padding:0 4px; margin-right:5px; line-height:15px; vertical-align:middle; }
   .fan-t-time { font-size:11px; color:#7a8a99; white-space:nowrap; }
   .fan-t-app { font-size:11px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .fan-t-app.mag { color:#7ab8ff; } .fan-t-app.wag { color:#ff8ad6; }
@@ -717,6 +772,7 @@
         if (a && (a.name !== f.name || (a.club || '') !== f.club)) { f.name = a.name; f.club = a.club || ''; changed = true; }
       });
       if (changed) lsSet(LS_FOLLOWS, follows);
+      detectEdits();
       notifyChanges();
       render();
       refreshClubs();
